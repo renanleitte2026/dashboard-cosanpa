@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>COSANPA — Painel de Contratos</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#f0f2f5;--surface:#ffffff;--surface2:#f7f8fa;--border:#e2e6ea;
+  --text:#1a202c;--muted:#64748b;--accent:#005eb8;--accent-light:#e8f0fb;
+  --green:#16a34a;--green-bg:#dcfce7;--yellow:#d97706;--yellow-bg:#fef3c7;
+  --red:#dc2626;--red-bg:#fee2e2;--orange:#ea580c;--orange-bg:#ffedd5;
+  --blue:#1d4ed8;--blue-bg:#dbeafe;--purple:#7c3aed;--purple-bg:#ede9fe;
+  --radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);
+}
+.btn-refresh{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 12px;cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.btn-refresh:hover{background:rgba(255,255,255,.25)}
+.btn-refresh.loading{opacity:.7;cursor:not-allowed}
+.btn-refresh .spin{display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+#sync-status{font-size:10px;color:rgba(255,255,255,.65);white-space:nowrap}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;min-height:100vh}
+
+/* HEADER */
+.header{background:var(--accent);padding:0 28px;display:flex;align-items:center;gap:16px;height:56px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,94,184,.3)}
+.header-logo{font-size:18px;font-weight:700;color:#fff;letter-spacing:.5px}
+.header-sep{width:1px;height:24px;background:rgba(255,255,255,.25)}
+.header-sub{color:rgba(255,255,255,.8);font-size:12px}
+.header-date{margin-left:auto;color:rgba(255,255,255,.7);font-family:'IBM Plex Mono',monospace;font-size:11px}
+
+.header-textos{
+  display:flex;
+  flex-direction:column;
+  line-height:1.2;
+}
+
+.header-elaborado{
+  font-size:10px;
+  color:rgba(255,255,255,.7);
+  margin-top:2px;
+}
+
+/* LAYOUT */
+.main{padding:22px 28px;max-width:1700px;margin:0 auto}
+.section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:12px}
+
+/* === CARDS SITUAÇÃO === */
+.sit-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.sit-card{background:var(--surface);border-radius:var(--radius);padding:16px 18px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative;overflow:hidden;transition:box-shadow .15s}
+.sit-card:hover{box-shadow:var(--shadow-md)}
+.sit-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--sc-color)}
+.sit-card .label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:6px}
+.sit-card .num{font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:500;color:var(--sc-color);line-height:1}
+.sit-card .val{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:5px}
+.sit-card .icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:24px;opacity:.13}
+.sit-card.destaque{background:linear-gradient(135deg,#ecfdf5 0%,#ffffff 100%);border:1px solid #bbf7d0}
+.sit-card.destaque::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#16a34a}
+.sit-card.destaque .label{color:#15803d}
+.sit-card.destaque .num{color:#166534;font-size:24px}
+.sit-card.destaque .val{font-size:11px;line-height:1.25}
+
+/* === CARDS KPI SUPERIOR === */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px;align-items:stretch}
+.kpi-card{background:var(--surface);border-radius:var(--radius);padding:12px 14px;border:1px solid var(--border);box-shadow:var(--shadow);min-height:88px;display:flex;flex-direction:column;justify-content:center}
+.kpi-card .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:6px}
+.kpi-card .val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--text);line-height:1.15}
+.kpi-card .sub{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.2}
+
+/* === VENCIMENTOS === */
+.venc-grid{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.venc-card{flex:1;min-width:140px;background:var(--surface);border-radius:var(--radius);padding:13px 16px;border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;transition:all .15s;border-bottom:3px solid var(--vc)}
+.venc-card:hover,.venc-card.active{box-shadow:var(--shadow-md);border-color:var(--vc)}
+.venc-card.active{background:var(--accent-light)}
+.venc-card .num{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:500;color:var(--vc)}
+.venc-card .lbl{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* === DOIS PAINÉIS === */
+.mid-grid{display:grid;grid-template-columns:380px 1fr;gap:16px;margin-bottom:20px;align-items:start}
+@media(max-width:960px){.mid-grid{grid-template-columns:1fr}}
+@media(max-width:1280px){.sit-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:800px){.sit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.kpi-grid{grid-template-columns:1fr}.sit-grid{grid-template-columns:1fr}}
+
+/* === GRÁFICO DIRETORIA === */
+.chart-box{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:18px 20px}
+.chart-row{margin-bottom:11px;cursor:pointer}
+.chart-row:last-child{margin-bottom:0}
+.chart-row:hover .bar-fill{filter:brightness(.92)}
+.chart-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.chart-dir{font-size:12px;font-weight:600;color:var(--text)}
+.chart-meta{display:flex;gap:10px;align-items:baseline}
+.chart-qtd{font-size:10px;color:var(--muted)}
+.chart-val{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;color:var(--accent)}
+.bar-track{background:var(--surface2);border-radius:3px;height:7px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+/* === TABELA === */
+.table-box{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.table-head-row{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.table-scroll{overflow-x:auto;max-height:520px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;min-width:1100px}
+thead th{background:var(--surface2);padding:9px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:background .15s}
+thead th:hover{background:#eef1f5}
+thead th .sort-icon{margin-left:4px;opacity:.4;font-size:9px}
+thead th.sorted .sort-icon{opacity:1;color:var(--accent)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .12s;cursor:pointer}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+td{padding:8px 12px;font-size:12px;vertical-align:middle}
+td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap}
+.badge-ativo{background:var(--green-bg);color:var(--green)}
+.badge-termino{background:var(--yellow-bg);color:var(--yellow)}
+.badge-rescisao{background:var(--red-bg);color:var(--red)}
+.badge-encerrado{background:#f1f5f9;color:#64748b}
+.tag-cat{background:var(--blue-bg);color:var(--blue);display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.tag-sub{background:#f1f5f9;color:#475569;display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:500}
+.dias-ok{color:var(--green)}
+.dias-warn{color:var(--orange)}
+.dias-danger{color:var(--red)}
+.empty{text-align:center;padding:36px;color:var(--muted)}
+
+/* PAGINAÇÃO */
+.pag{display:flex;align-items:center;gap:6px;padding:10px 16px;border-top:1px solid var(--border);justify-content:flex-end}
+.pag-info{font-size:11px;color:var(--muted);margin-right:auto}
+.pag-btn{background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:4px 9px;cursor:pointer;transition:all .15s}
+.pag-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pag-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.pag-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;width:92%;max-width:660px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-hd{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-hd h3{font-size:14px;font-weight:600;color:var(--text)}
+.modal-close{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;line-height:1;transition:color .15s}
+.modal-close:hover{color:var(--text)}
+.modal-bd{padding:18px 20px;overflow-y:auto}
+.mrow{display:flex;gap:8px;margin-bottom:10px;align-items:baseline}
+.mlabel{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);min-width:120px;flex-shrink:0}
+.mval{font-size:12px;color:var(--text);flex:1}
+.mval.mono{font-family:'IBM Plex Mono',monospace}
+.mobj{background:var(--surface2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.7;margin-top:6px;border-left:3px solid var(--accent)}
+
+/* FILTROS */
+.filters{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+.filters-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px}
+.fg label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.fg input,.fg select{background:#fff;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:6px 9px;outline:none;transition:border-color .15s}
+.fg input:focus,.fg select:focus{border-color:var(--accent)}
+.btn-clear{background:#fff;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:6px 14px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-clear:hover{border-color:var(--accent);color:var(--accent)}
+.fc{font-size:11px;color:var(--muted);margin-top:8px}
+.fc span{color:var(--accent);font-weight:600}
+
+
+/* PAINEL INSTITUCIONAL */
+.hero-inst{background:linear-gradient(135deg,#f8fbff 0%,#eef5fd 100%);border:1px solid #d7e5f5;border-radius:14px;box-shadow:var(--shadow);padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:28px;min-height:220px;position:relative;overflow:hidden}
+.hero-inst::before{content:"";position:absolute;right:-70px;top:-70px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle, rgba(0,94,184,.10) 0%, rgba(0,94,184,.04) 45%, rgba(0,94,184,0) 72%)}
+.hero-inst::after{content:"";position:absolute;left:-40px;bottom:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle, rgba(0,94,184,.07) 0%, rgba(0,94,184,.03) 45%, rgba(0,94,184,0) 75%)}
+.hero-inst-copy{position:relative;z-index:1;max-width:560px}
+.hero-kicker{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:var(--accent);margin-bottom:12px}
+.hero-title{font-size:30px;line-height:1.1;font-weight:700;color:#0f2742;letter-spacing:.2px}
+.hero-sub{margin-top:12px;font-size:13px;line-height:1.6;color:#4b647d;max-width:520px}
+.hero-inst-brand{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-width:260px}
+.hero-inst-brand img{max-width:240px;width:100%;height:auto;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(0,94,184,.10))}
+.hero-brand-caption{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#5e7fa3;text-align:center}
+@media(max-width:960px){.hero-inst{flex-direction:column;text-align:center;padding:24px}.hero-inst-copy{max-width:none}.hero-title{font-size:24px}.hero-sub{max-width:none}.hero-inst-brand{min-width:auto}.hero-inst-brand img{max-width:190px}}
+
+
+
+/* === AJUSTES VISUAIS EXECUTIVOS === */
+html,body{height:auto;overflow:auto}
+body{font-size:13px}
+.header{height:58px;padding:0 24px;position:sticky;top:0}
+.header-logo{font-size:17px}
+.header-sub{font-size:12px}
+.header-date{font-size:11px}
+.header-sep{height:22px}
+.main{max-width:1500px;padding:16px 20px 22px;overflow:visible;display:block;height:auto}
+.section-label{font-size:10px;letter-spacing:1px;margin-bottom:10px;line-height:1.2}
+.hero-inst{margin-bottom:18px;min-height:168px;padding:22px 26px;align-items:center}
+.hero-title{font-size:26px}
+.hero-sub{font-size:13px;max-width:620px}
+.hero-inst-brand img{max-width:118px}
+.kpi-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px}
+.sit-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px}
+.venc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.kpi-card,.sit-card,.venc-card{padding:18px 20px;border-radius:12px}
+.kpi-card .label,.sit-card .label{font-size:11px;margin-bottom:8px}
+.kpi-card .val{font-size:27px;font-weight:700;letter-spacing:-.4px}
+.kpi-card .sub{font-size:13px;margin-top:7px;color:#4b5563;font-weight:600}
+.kpi-card.destaque{background:linear-gradient(135deg,#ecfdf5 0%,#ffffff 100%);border:1px solid #86efac;box-shadow:0 8px 20px rgba(22,163,74,.12)}
+.kpi-card.destaque .label{color:#166534}
+.kpi-card.destaque .val{color:#166534}
+.kpi-card.destaque .sub{color:#15803d}
+.sit-card .num{font-size:34px;font-weight:700;letter-spacing:-.5px}
+.sit-card .val{font-size:13px;margin-top:7px;color:#4b5563;font-weight:600}
+.sit-card .icon{font-size:26px;right:14px}
+.venc-card .num{font-size:30px;font-weight:700}
+.venc-card .lbl{font-size:13px;color:#4b5563;font-weight:600;margin-top:6px}
+.mid-grid{grid-template-columns:minmax(320px,360px) 1fr;gap:16px;align-items:start;margin-bottom:0}
+.chart-box{padding:18px 18px 16px;position:sticky;top:76px}
+.brand-mini{display:none}
+.chart-title-inline{margin-bottom:14px!important}
+.chart-dir{font-size:12px}
+.chart-qtd{font-size:11px}
+.chart-val{font-size:12px;font-weight:700}
+.bar-track{height:8px}
+.filters{padding:16px 18px;margin-bottom:14px}
+.filters-row{gap:10px}
+.fg{min-width:140px}
+.fg label{font-size:10px}
+.fg input,.fg select,.btn-clear{padding:8px 10px;font-size:12px;min-height:38px}
+.fc{font-size:12px;margin-top:10px}
+.table-box{display:block;height:auto}
+.table-head-row{padding:14px 16px}
+.table-scroll{height:auto;max-height:none;overflow-y:visible;overflow-x:hidden}
+table{min-width:0;table-layout:fixed;width:100%}
+thead th{padding:9px 8px;font-size:10px;white-space:normal;line-height:1.15}
+td{padding:9px 8px;font-size:11px;vertical-align:top;word-break:break-word}
+td.mono{font-size:11px}
+.badge,.tag-cat,.tag-sub{font-size:9px;padding:3px 6px}
+.pag{padding:10px 16px;position:sticky;bottom:0;background:linear-gradient(to top,#fff 75%,rgba(255,255,255,.92));backdrop-filter:blur(2px)}
+.pag-info{font-size:11px}
+.pag-btn{padding:5px 10px;font-size:10px}
+/* larguras da tabela sem rolagem lateral */
+table th:nth-child(1),table td:nth-child(1){width:6%}
+table th:nth-child(2),table td:nth-child(2){width:19%}
+table th:nth-child(3),table td:nth-child(3){width:12%}
+table th:nth-child(4),table td:nth-child(4){width:11%}
+table th:nth-child(5),table td:nth-child(5){width:10%}
+table th:nth-child(6),table td:nth-child(6){width:8%}
+table th:nth-child(7),table td:nth-child(7){width:8%}
+table th:nth-child(8),table td:nth-child(8){width:6%}
+table th:nth-child(9),table td:nth-child(9){width:10%}
+table th:nth-child(10),table td:nth-child(10){width:10%}
+@media (max-width: 1200px){
+  .mid-grid{grid-template-columns:1fr}
+  .chart-box{position:relative;top:auto}
+}
+@media (max-width: 760px){
+  .hero-inst{padding:18px 18px}
+  .hero-title{font-size:24px}
+  .hero-sub{font-size:13px}
+  .kpi-card .val,.sit-card .num,.venc-card .num{font-size:24px}
+  .table-scroll{overflow-x:auto}
+  table{min-width:980px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">COSANPA</div>
+  <div class="header-sep"></div>
+
+  <div class="header-textos">
+    <div class="header-sub">Painel de Gestão de Contratos</div>
+    <div class="header-elaborado">
+      Elaborado pela Diretoria de Gestão de Logística — Diretor Jeanderson da Silva Saraiva
+    </div>
+  </div>
+
+  <div class="header-date" id="hdate"></div>
+  <span id="sync-status"></span>
+  <button class="btn-refresh" id="btn-refresh" onclick="atualizarDoSheets()" title="Buscar dados atualizados do Google Sheets">
+    <span id="refresh-icon">🔄</span> Atualizar dados
+  </button>
+</div>
+
+<div class="main">
+
+  <div class="hero-inst">
+    <div class="hero-inst-copy">
+      <div class="hero-kicker">Painel Executivo</div>
+      <div class="hero-title">Contratos - Diretorias - Cosanpa</div>
+      <div class="hero-sub">Visão consolidada dos contratos por situação, vencimento, diretoria e valores, com leitura rápida para acompanhamento gerencial.</div>
+    </div>
+    <div class="hero-inst-brand">
+      <img src="LOGO-COSANPA-png.png" alt="Logo da COSANPA"/>
+      <div class="hero-brand-caption">Companhia de Saneamento do Pará</div>
+    </div>
+  </div>
+
+  <!-- KPIs globais -->
+  <div class="section-label">Visão Geral</div>
+  <div class="kpi-grid" id="kpi-grid"></div>
+
+  <!-- Situações -->
+  <div class="section-label">Status dos Contratos</div>
+  <div class="sit-grid" id="sit-grid"></div>
+
+  <!-- Vencimentos -->
+  <div class="section-label">Alertas de Vencimento</div>
+  <div class="venc-grid" id="venc-grid"></div>
+
+  <!-- Gráfico + Tabela -->
+  <div class="mid-grid">
+    <div class="chart-box">
+      <div class="brand-mini">
+        <img src="LOGO-COSANPA-png.png" alt="Logo da COSANPA"/>
+        <div>
+          <div class="brand-mini-kicker">COSANPA</div>
+          <div class="brand-mini-title">Diretoria de Gestão de Logística</div>
+        </div>
+      </div>
+      <div class="section-label chart-title-inline" style="margin-bottom:10px">Contratos por Diretoria — Valor Atual ↓</div>
+      <div id="chart"></div>
+    </div>
+    <div>
+      <!-- Filtros -->
+      <div class="filters">
+        <div class="section-label" style="margin-bottom:10px">Filtros</div>
+        <div class="filters-row">
+          <div class="fg" style="flex:2;min-width:200px">
+            <label>Empresa</label>
+            <input type="text" id="f-emp" placeholder="Pesquisar empresa…"/>
+          </div>
+          <div class="fg">
+            <label>Situação</label>
+            <select id="f-sit"><option value="">Todas</option></select>
+          </div>
+          <div class="fg">
+            <label>Diretoria</label>
+            <select id="f-dir"><option value="">Todas</option></select>
+          </div>
+          <div class="fg">
+            <label>Unidade</label>
+            <select id="f-uni"><option value="">Todas</option></select>
+          </div>
+          <div class="fg">
+            <label>Categoria</label>
+            <select id="f-cat"><option value="">Todas</option></select>
+          </div>
+          <div class="fg">
+            <label>Subcategoria</label>
+            <select id="f-sub"><option value="">Todas</option></select>
+          </div>
+          <button class="btn-clear" onclick="clearFilters()">Limpar</button>
+        </div>
+        <div class="fc">Exibindo <span id="fc-c">0</span> de <span id="fc-t">0</span> contratos</div>
+      </div>
+
+      <!-- Tabela -->
+      <div class="table-box">
+        <div class="table-head-row">
+          <div class="section-label" style="margin:0">Relação de Contratos</div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th onclick="sortBy('num')" title="Ordenar por Nº">Nº <span class="sort-icon" id="si-num">▲▼</span></th>
+                <th onclick="sortBy('empresa')" title="Ordenar por Empresa">Empresa <span class="sort-icon" id="si-empresa">▲▼</span></th>
+                <th onclick="sortBy('categoria')" title="Ordenar por Categoria">Categoria <span class="sort-icon" id="si-categoria">▲▼</span></th>
+                <th onclick="sortBy('subcategoria')" title="Ordenar por Subcategoria">Subcategoria <span class="sort-icon" id="si-subcategoria">▲▼</span></th>
+                <th onclick="sortBy('situacao')" title="Ordenar por Situação">Situação <span class="sort-icon" id="si-situacao">▲▼</span></th>
+                <th onclick="sortBy('vig_inicio')" title="Ordenar por Vigência Inicial">Vig. Inicial <span class="sort-icon" id="si-vig_inicio">▲▼</span></th>
+                <th onclick="sortBy('vig_final')" title="Ordenar por Vigência Final">Vig. Final <span class="sort-icon" id="si-vig_final">▲▼</span></th>
+                <th onclick="sortBy('dias')" title="Ordenar por Dias">Dias <span class="sort-icon" id="si-dias">▲▼</span></th>
+                <th onclick="sortBy('val_atual')" title="Ordenar por Valor Atual">Valor Atual <span class="sort-icon" id="si-val_atual">▲▼</span></th>
+                <th onclick="sortBy('val_mensal')" title="Ordenar por Valor Mensal">Valor Mensal <span class="sort-icon" id="si-val_mensal">▲▼</span></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pag">
+          <span class="pag-info" id="pag-info"></span>
+          <button class="pag-btn" id="btn-prev" onclick="goPage(curPage-1)">‹ Ant.</button>
+          <span id="pag-nums"></span>
+          <button class="pag-btn" id="btn-next" onclick="goPage(curPage+1)">Próx. ›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3 id="m-title">Detalhes</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-bd" id="m-body"></div>
+  </div>
+</div>
+
+<script>
+const DATA=[{"ano":"2010","num":"49","empresa":"LIDER COMERCIO E INDUSTRIA LTDA","objeto":"A LOCADORA cede em locação a LOCATÁRIA terreno de sua propriedade com aproximadamente 1.200m² (mil e duzentos metros quadrados) de área, situada no perímetro descrito no preâmbulo, qual seja, terreno situado à Rua de Óbidos, trecho compreendido entre as ruas Carlos de Carvalho e Ângelo Custódio nesta Capital.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Locação de Imóvel","situacao":"ATIVO","dias":1553,"vig_inicio":"01/08/2010","vig_final":"01/07/2030","val_contratado":5000.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2010","num":"95","empresa":"ARQUIDIOCESE DE BELÉM","objeto":"O CEDENTE, conforme é do pleno conhecimento do CESSIONÁRIO, é detentor da propriedade e domínio da área localizada na Avenida Jõao Paulo II s/n, nas proximidades do Utinga, conforme expresso em planta anexa, na cidade de Belém, Estado Pará, que passa a fazr parte integrante deste instrumento.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":1728,"vig_inicio":"23/12/2010","vig_final":"23/12/2030","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2012","num":"40","empresa":"PREFEITURA MUNICIPAL DE CONCEIÇÃO DO ARAGUAIA","objeto":"Cessão de Uso, a título não oneroso, pela CEDENTE à CESSIONÁRIA, do Lote 04, Quadra 143, localizado na Avenida Governador Magalhães Barata, com a área total de 800,00 m2, conforme croquis que integra o processo.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":2204,"vig_inicio":"13/04/2012","vig_final":"12/04/2032","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2012","num":"55","empresa":"CONTRATO DE CONCESSAO PREFEITURA MUNICIPAL DE ABAETETUBA","objeto":"CESSÃO DE USO, A TÍTULO NÃO ONEROSO, PELA CEDENTE Á CESSIONÁRIA, DE PARTE DA ÁREA LOCALIZADA NA TRAVESSA SANTOS DUMONT.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":2222,"vig_inicio":"30/04/2012","vig_final":"30/04/2032","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2016","num":"12","empresa":"SERVICO SOCIAL DA INDUSTRIA","objeto":"CESSÃO DE USO DE PARTE DO TERRENO DE PROPRIEDADE DA CEDENTE, LOCALIZADO NO MUNICÍPIO DE ANANINDEUA, NA AENIDA CLÁUDIO SAUNDERS (ESTRADA DO MAGUARI) , ACESSO PELA RUA JULIA MEDEIROS, NO MUNICÍPIO DE ANANINDEUA - PA.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":7278,"vig_inicio":"04/03/2016","vig_final":"04/03/2046","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2016","num":"38","empresa":"AGUAS DO GUAMA REDE DE DISTRIBUICAO E SANEAMENTO SPE LTDA.","objeto":"IMPLANTAÇÃO DAS OBRAS E SERVIÇOS COMPREENDENDO A SUBSTITUIÇÃO DAS REDES DE ÁGUA EM CIMENTO AMIANTO, IMPLANTAÇÃO DAS REDES DE ÁGUA EM CIMENTO AMIANTO, IMPLANTAÇÃO DE REDES DE ÁGUA COM AS INTERLIGAÇÕES NECESSÁRIAS, INSTALAÇÃO DE SOLUÇÃO DE MICROMEDIÇÃO DE ÁGUA (SMA) EM PEQUENOS CONSUMIDORES, IMPLANTAÇÃO E AMPLIAÇÃO DA MACROMEDIÇÃO E PITOMETRIA, INCLUINDO A SETORIZAÇÃO DAS REDES DE DISTRIBUIÇÃO DE ÁGUA, VISANDO O AUMENTO DA CAPACIDADE DE ABASTECIMENTO DA POPULAÇÃO E A EFICIÊNCIA DO SISTEMA PRODUTOR DAS UNIDADES NORTE E SUL, NA REGIÃO METROPOLITANA DE BELÉM, ESTADO DO PARÁ.","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":7403,"vig_inicio":"07/07/2016","vig_final":"07/07/2046","val_contratado":249373000.0,"val_atual":6366397.27,"val_mensal":0.0,"diretoria":"DET","unidade":"USOS"},{"ano":"2017","num":"3","empresa":"LIDER COMERCIO E INDUSTRIA LTDA","objeto":"LOCAÇÃO DE IMÓVEL PARA FINS COMERCIAIS AO LOCATÁRIO, COM AS SEGUINTES ESPECIFICAÇÕES: ÁREA MEDINCO 1.463M2 , JÁ ERIGIDO CONSTRUÇÃOPOR PARTE DO LOCATÁRIO, SITUADO NA TRAVESSA SN-23, PERÍMETRO COMPREENDIDO ENTRE AS TRAVESSAS WE - 72 E WE-75, INTEGRANTE DO CONJUNTO HABITACIONAL CIDADE NOVA VI - BAIIRRO COQUEIRO - NO MUNICÍPIO E COMARCA DE ANANINDEUA-ESTADO DO PARÁ.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Locação de Imóvel","situacao":"ATIVO","dias":1583,"vig_inicio":"18/01/2017","vig_final":"31/07/2030","val_contratado":3000.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2017","num":"35","empresa":"SECRETARIA DE ESTADO DE EDUCACAO - SEDUC .","objeto":"CESSÃO DE USO NÃO ONEROSA Á CESSIONÁRIA DE UM TERRENO DA CEDENTE,MEDINDO 100M DE FRENTE POR 100 M DE FUNDOS DE UMA ÁREA EQUIVALENTE A 1.282,5565/HÁ, LOCALIZADO NA RUA OSVALDO CRUZ, AO LADO DO CAMPO DO BOTICÃO, ENTRRE AS PASSAGENS TEREZINHA E SÃO JORGE, EM FRENTE AO RESIDENCIAL PORTA DO SOL, BAIRRO ÁGUAS LINDAS, ANANINDEUA - PARÁ.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":7760,"vig_inicio":"29/06/2017","vig_final":"29/06/2047","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2017","num":"41","empresa":"CONSORCIO BOLONHA CONSTITUIDO PELAS EMPRESAS CONSTRUTORA AUGUSTO VELLOSO S.A E ENFIL S.A. CONTROLE","objeto":"EXECUÇÃO DE OBRAS E SERVIÇOS, INCLUINDO O FORNECIMENTO DE MATERIAIS E EQUIPAMENTOS PARA REVITALIZAÇÃO E MODERNIZAÇÃO DO SISTEMA PRODUTOR BOLONHA, PARA PRODUÇÃO TOTAL DE 6,4M3/S E AMPLIAÇÃO DO SISTEMA DE RESERVAÇÃO NO MUNICÍPIO DE BELÉM E ADUÇÃO DE ÁGUA TRATADA NOS MUNICÍPIOS DE ANANINDEUA E MARITUBA-ESTADO DO PARÁ.","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":145,"vig_inicio":"22/08/2017","vig_final":"23/08/2026","val_contratado":113205516.78,"val_atual":18928149.75,"val_mensal":0.0,"diretoria":"DET","unidade":"USOS"},{"ano":"2017","num":"42","empresa":"CONSÓRCIO CARMONA-CALCAR-IKOPP","objeto":"Contratação de Empresa de Engenharia para Execução de Obras e Serviços, incluindo o fornecimento de materiais e equipamentos, para a Ampliação e melhoria do Sistema de Abastecimento de Água da cidade de CASTANHAL, Estado do Pará","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":231,"vig_inicio":"19/10/2017","vig_final":"17/11/2026","val_contratado":68645276.47,"val_atual":28894014.85,"val_mensal":0.0,"diretoria":"DET","unidade":"USOS"},{"ano":"2018","num":"13","empresa":"Pref. Municip. Vigia de Nazaré","objeto":"CESSÃO DE USO NÃO ONEROSA DE BEM PÚBLICO (IMÓVEL) DA CEDENTE AO CESSIONÁRIO, LOCALIZADO NA AV. MARCIONILO ALVES S/N, NA CIDADE DE VIGIA, ESTADO DO PARÁ, MEDINDO 120 METROS DE FRENTE POR 66 METROS DE FUNDOS, TOTALIZANDO UMA ÁREA 8.184M², ONDE FUNCIONA ATUALMENTE UM DOS SISTEMAS DE CAPTAÇÃO DE ÁGUA DA COSANPA.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":715,"vig_inicio":"16/03/2018","vig_final":"15/03/2028","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2018","num":"22","empresa":"IZAURA BATISTA RODRIGUES","objeto":"CESSÃO DE USO NÃO ONEROSA, À CESSIONÁRIA, DO BOX 11, QUE É PARTE DO IMÓVEL DA CEDENTE, LOCALIZADA NA PRAÇA IZA CUNHA, NO BAIRRO DA PRATINHA, CONSTRUÍDA PELO GOVERNO DO ESTADO, NO ÂMBITO DAS OBRAS DO PROJETO AÇÃO METRÓPOLE, EM ÁREA DE PROPRIEDADE DA CEDENTE, MEDINDO A ÁREA TOTAL DE 2.595,52 M², ONDE FUNCIONA ATUALMENTE O SISTEMA DE CAPTAÇÃO E DISTRIBUIÇÃO DE ÁGUA.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":715,"vig_inicio":"16/03/2018","vig_final":"15/03/2028","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2019","num":"70","empresa":"CARMONA CABRERA CONSTRUTORA DE OBRAS S.A.","objeto":"Execução de obras de recuperação e ampliação da capacidade dos sistemas de elevação e destino final do esgoto do una localizado na rodovia Arthur Bernardes - bairro de telégrafo em Belém.","categoria":"Obras e Engenharia","subcategoria":"SES (Sistema de Esgotamento Sanitário)","situacao":"ATIVO","dias":291,"vig_inicio":"16/10/2019","vig_final":"16/01/2027","val_contratado":52838631.17,"val_atual":3839392.53,"val_mensal":0.0,"diretoria":"DET","unidade":"USOS"},{"ano":"2020","num":"5","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"EXECUÇÃO DE OBRAS E4 SERVIÇOS DE AMPLIAÇÃO DO SISTEMA DE ABASTECIMENTO DE ÁGUA DA CIDADE DE SOURE, NO ESTADO DO PARÁ.","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":248,"vig_inicio":"03/02/2020","vig_final":"04/12/2026","val_contratado":746872.95,"val_atual":1120057.9,"val_mensal":0.0,"diretoria":"DET","unidade":"USOS"},{"ano":"2020","num":"43","empresa":"EMPRESA DE TECNOLOGIA DA INFORMACAO E COMUNICACAO DO ESTADO DO PARA - PRODEPA","objeto":"CESSAO DE USO NAO ONEROSA, A CESSIONARIA, O DIREITO DE USO DA AREA ESPECIFICADA EM NOTA TECNICA REFERENTE AO TERRENO COM AS SUAS RESPECTIVAS COORDENADAS GPS (4 17 11.26 S // 47 33 32.92 O), LOCALIZADA NO MUNICIPIO DOM ELISEU NO ENDEREÇO: RUA SAO PAULO, S/N, PARA USO EXCLUSIVO DO CESSIONARIO QUE ATENDE AOS REQUISITOS PARA A IMPLEMENTAÇÃO DA ESTACAO.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":1624,"vig_inicio":"11/09/2020","vig_final":"10/09/2030","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2020","num":"61","empresa":"CONDOMINIO DO RESIDENCIAL PADRE PIETRO GEROSA","objeto":"CESSÃO DE USO NÃO ONEROSA, À CESSIONÁRIA, O DIREITO DE USO DO BEM ESPECIFICADO EM NOTA TÉCNICA REFERENTE AO SISTEMA DE ABASTECIMENTO DE AGUA, LOZALIZADO NA ESTRADA SANTANA DO AURA.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":8988,"vig_inicio":"09/11/2020","vig_final":"08/11/2050","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DO","unidade":"UNBR"},{"ano":"2021","num":"14","empresa":"HTBR - ARQUITETURA E ENGENHARIA LTDA","objeto":"ELABORAÇÃO DA REVISÃO E ATUALIZAÇÃO DO PLANO DIRETOR DE ABASTECIMENTO DE ÁGUA E PLANO DIRETOR DE ESGOTAMENTO SANITÁRIO NA REGIÃO METROPOLITANA DE BELÉM- PDAAES- RMB, NO ESTADO DO PARÁ.","categoria":"Projetos e Consultoria Técnica","subcategoria":"Planos Diretores","situacao":"TÉRMINO DA VIGÊNCIA","dias":176,"vig_inicio":"22/03/2021","vig_final":"23/09/2026","val_contratado":9057414.33,"val_atual":11375880.89,"val_mensal":0.0,"diretoria":"DET","unidade":"USPA"},{"ano":"2021","num":"20","empresa":"LOC MINAS LOCADORA DE VEICULOS LTDA","objeto":"Prestação de serviços de locação de veículos tipo Caminhão com as implementações de equipamentos necessárias, conforme descrito no Termo de Referência, sem condutor e quilometragem livre, para atendimento as futuras demandas da Companhia de Saneamento do Pará - COSANPA, em conformidade com as especificações e quantitativos, incluindo os detalhamentos necessários, conforme Termo de Referência nº DPL 021/2020.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"TÉRMINO DA VIGÊNCIA","dias":14,"vig_inicio":"13/04/2021","vig_final":"14/04/2026","val_contratado":3134796.0,"val_atual":4666585.02,"val_mensal":0.0,"diretoria":"DGL","unidade":"UETR"},{"ano":"2021","num":"21","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"EXECUÇÃO DE SERVIÇOS ESPECIALIZADOS DE ENGENHARIA COM FORNECIMENTO DE MATERIAIS E EQUIPAMENTOS PARA RETIRADA DE VAZAMENTOS EM ADUTORAS DE ÁGUA COM RECOMPOSIÇÃO DE VIAS PÚBLICAS NOS MUNIÍCIPIOS DE ANANINDEUA, BELÉM E MARITUBA, NO ESTADO DO PARÁ.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção Hidráulica","situacao":"TÉRMINO DA VIGÊNCIA","dias":52,"vig_inicio":"21/05/2021","vig_final":"22/05/2026","val_contratado":2456335.8,"val_atual":3239351.44,"val_mensal":0.0,"diretoria":"DO","unidade":"USMA"},{"ano":"2021","num":"28","empresa":"Mastersys Consultoria de Informatica Eireli","objeto":"PRESTAÇÃO DE SERVIÇOS DE ENGENHARIA, PARA ELABORAÇÃO DE PLANILHAS DE ORÇAMENTOS, PROJETO BÁSICO E EXECUTIVO PARA OBRAS DE SANEAMENTO, UTILIZANDO SOFTWARE DE GESTÃO DE ENGENHARIA, COM SUPORTE TÉCNICO, PLANEJAMENTO E ACOMPANHAMENTO DE OBRAS, NO MUNICÍPIO DE BELÉM, ESTADO DO PARÁ.","categoria":"Projetos e Consultoria Técnica","subcategoria":"Projetos de Engenharia","situacao":"EM RESCISÃO","dias":57,"vig_inicio":"27/05/2021","vig_final":"27/05/2026","val_contratado":1740156.92,"val_atual":2402191.53,"val_mensal":0.0,"diretoria":"DET","unidade":"USPA"},{"ano":"2021","num":"30","empresa":"VFATEC SOLUCOES EM SISTEMAS S/S LTDA.","objeto":"COM VISTAS A GERAÇÃO DE DOCUMENTOS ELETRÔNICOS (SISTEMA PÚBLICO DE ESCRITURA DIGITAL), PARA CUMPRIMENTO DAS OBRIGAÇÕES ACESSÓRIAS AOS ÓRGÃOS FISCALIZADORES, ASSESORIA REFERENTE AO SPED CONTRIBUIÇÕES (PIS/COFINS) E SPED FISCAL.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"TÉRMINO DA VIGÊNCIA","dias":115,"vig_inicio":"24/06/2021","vig_final":"24/07/2026","val_contratado":13800.0,"val_atual":16102.76,"val_mensal":1341.9,"diretoria":"DGL","unidade":"UEDS"},{"ano":"2021","num":"32","empresa":"U RELVAS DOLIVEIRA EIRELI","objeto":"PRESTAÇÃO DE SERVIÇOS DE VIGILÂNCIA ELETRÔNICA, COM FORNECIMENTO DE EQUIPAMENTOS NECESSÁRIOS (EM REGIME DE COMODATO), INCLUINDO OS SERVIÇOS DE INSTALAÇÃO E MANUTENÇÃO DO SISTEMA DE CÂMARAS, MONITORAMENTO DE VÍDEO ALARME COM GRAVAÇÃO EM NUVEM E CERCA ELÉTRICA INDUSTRIAL, QUE SERÃO UTILIZADAS DE FORMA CONTÍNUA NAS DEPENDÊNCIAS INTERNAS DE SETORES DA COSANPA, NO MUNICÍPIO DE BELÉM, NO ESTADO DO PARÁ.","categoria":"Serviços de Apoio Operacional","subcategoria":"Vigilância e Segurança","situacao":"TÉRMINO DA VIGÊNCIA","dias":85,"vig_inicio":"24/06/2021","vig_final":"24/06/2026","val_contratado":69600.0,"val_atual":69600.0,"val_mensal":5800.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2021","num":"33","empresa":"HTBR - ARQUITETURA E ENGENHARIA LTDA","objeto":"ELABORAÇÃO DOS PROJETOS BÁSICOS DE AMPLIAÇÃO E MELHORIAS DO SISTEMA DE ABASTECIMENTO DE ÁGUA E DO SISTEMA DE ESGOTAMENTO SANITÁRIO DO DISTRITO DE MOSQUEIRO, NO MUNICÍPIO DE BELÉM, NO ESTADO DO PARÁ.","categoria":"Projetos e Consultoria Técnica","subcategoria":"Projetos de Engenharia","situacao":"ATIVO","dias":24,"vig_inicio":"24/06/2021","vig_final":"24/04/2026","val_contratado":2570385.98,"val_atual":980179.66,"val_mensal":0.0,"diretoria":"DET","unidade":"USPA"},{"ano":"2021","num":"37","empresa":"CARMONA CABRERA CONSTRUTORA DE OBRAS S.A.","objeto":"PRESTAÇÃO DE SERVIÇOS GERENCIAMENTO, MANUTENÇÃO (PREVENTIVA E CORRETIVA), CONTROLE DE QUALIDADE, LIMPEZA E CONSERVAÇÃO DAS ESTAÇÕES DE TRATAMENTO DE ÁGUA DOS SETORES ALMIR GABRIEL, BEIJA FLOR, MARITUBA CENTRO, MARITUBA COHAB, NOVO HORIZONTE E VIVER MELHOR MARITUBA.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção de Captação","situacao":"TÉRMINO DA VIGÊNCIA","dias":106,"vig_inicio":"15/07/2021","vig_final":"15/07/2026","val_contratado":3915127.46,"val_atual":4894479.35,"val_mensal":0.0,"diretoria":"DO","unidade":"UNBR"},{"ano":"2021","num":"40","empresa":"BANCO DO ESTADO DO PARA S.A.","objeto":"CESSÃO DE USO DE PARTE DE UM IMÓVEL DA COSANPA, POSSUINDO UMA ÁREA DE 109,41M², LOCALIZADO NA AVENIDA MAGALHÃES BARATA, N° 1201, POSTO DE ATENDIMENTO-BANPARÁ, BAIRRO SÃO BRÁS, NO MUNICÍPIO DE BELÉM - ESTADO DO PARÁ.","categoria":"Locação de Imóveis e Cessão de Uso","subcategoria":"Cessão de Uso","situacao":"ATIVO","dias":174,"vig_inicio":"21/09/2021","vig_final":"21/09/2026","val_contratado":31780.8,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2021","num":"45","empresa":"CLARO S. A.","objeto":"PRESTAÇÃO DE SERVIÇOS DE TELEFONIA MÓVEL PESSOAL (SMP), INCLUINDO UM SISTEMA INFORMATIZADO DE GERENCIAMNETO ON-LINE QUE PERMITA A VISUALIZAÇÃO E GERENCIAMENTO DE TODAS AS LINHAS MÓVEIS CONTRATADAS E FATURAS DO PLANO CORPORATIVO, ALÉM DA CESSÃO, EM REGIME DE COMODATO, DE APARELHOS TELEFÔNICOS MÓVEIS, ASSIM COMO A TRANSMISSÃO DE DADOS PARA ACESSO À INTERNET, INCLUINDO TODO O SUPORTE TÉCNICO EVENTUALMENTE NECESSÁRIO PARA ESTES SERVIÇOS E O FORNECIMENTO DE SISTEMA DE BUSINESS INTELLIGENCE (BI).","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Internet e Conectividade","situacao":"ATIVO","dias":149,"vig_inicio":"27/08/2021","vig_final":"27/08/2026","val_contratado":260210.64,"val_atual":260210.64,"val_mensal":10765.58,"diretoria":"DGL","unidade":"UEST"},{"ano":"2021","num":"50","empresa":"BELÉM RIO SEGURANÇA EIRELLI - EPP","objeto":"PRESTAÇÃO DE SERVIÇOS CONTINUADOS, COM DEDICAÇÃO EXCLUSIVA DE MÃO DE OBRA, DE VIGILÂNCIA PATRIMONIAL ARMADA E DESARMADA, COMPREENDENDO O FORNECIMENTO DE UNIFORMES E A DISPONIBILIZAÇÃO DE TODAS AS FERRAMENTAS E EQUIPAMENTOS DE PROTEÇÃO INDIVIDUAIS NECESSÁRIOS À SUA EXECUÇÃO.","categoria":"Serviços de Apoio Operacional","subcategoria":"Vigilância e Segurança","situacao":"TÉRMINO DA VIGÊNCIA","dias":125,"vig_inicio":"04/08/2021","vig_final":"03/08/2026","val_contratado":15176967.12,"val_atual":26981298.0,"val_mensal":1177263.29,"diretoria":"DGL","unidade":"UESP"},{"ano":"2021","num":"57","empresa":"DIAMOND SERVICE LTDA - EPP","objeto":"PRESTAÇÃO DE SERVIÇOS DE ATENDIMENTO AO PÚBLICO, INTERNO E EXTERNO E APOIO ADMINISTRATIVO NAS ÁREAS DE RECEPÇÃO AO CLIENTE DA COSANPA.","categoria":"Serviços Administrativos e RH","subcategoria":"Recursos Humanos","situacao":"ATIVO","dias":142,"vig_inicio":"20/08/2021","vig_final":"20/08/2026","val_contratado":1234784.22,"val_atual":2239663.2,"val_mensal":0.0,"diretoria":"DFM","unidade":"USGN"},{"ano":"2021","num":"64","empresa":"CLARO S. A.","objeto":"PRESTAÇÃO DE SERVIÇOS DE TELECOMUNICAÇÕES POR MEIO DE REDE MULTISERVIÇO PRIVADA DE COMUNICAÇÃO PARA COSANPA.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Internet e Conectividade","situacao":"EM RESCISÃO","dias":169,"vig_inicio":"16/09/2021","vig_final":"16/09/2026","val_contratado":937999.92,"val_atual":937999.92,"val_mensal":0.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2021","num":"67","empresa":"COOPERATIVA DE ASSISTENCIA A SAUDE ODONTOLOGICA - UNIODONTO","objeto":"PRESTAÇÃO DE SERVIÇOS DE ASSISTÊNCIA ODONTOLÓGICA, COMPREENDENDO TODOS OS PROCEDIMENTOS REALIZADOS EM CONSULTÓRIO, RELATIVOS À CONSULTA, EMERGÊNCIA, CIRURGIA, DENTÍSTICA, ENDODONTIA, PERIODONTIA, PREVENÇÃO EM SAÚDE BUCAL E RADIOLOGIA AOS USUÁRIOS DA COSANPA, ATIVOS E INATIVOS, REGULARMENTE INSCRITOS, QUE PODERÃO SER REALIZADOS EM TODO O ESTADO DO PARÁ.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":176,"vig_inicio":"23/09/2021","vig_final":"23/09/2026","val_contratado":518400.0,"val_atual":676582.8,"val_mensal":41000.0,"diretoria":"DGP","unidade":"UERT"},{"ano":"2021","num":"69","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"EXECUÇÃO DE SERVIÇOS COM O FORNECIMENTO DE MÃO DE OBRA E MATERIAL, INCLUSIVE MATERIAIS HIDRAULICOS PARA ASSENTAMENTO DEREDE DE DISTRIBUIÇÃO DE AGUA DA COSANPA, NAS VIAS PUBLICAS DE ANANINDEUA, BELÉM E MARITUBA, NO ESTADO DO PARÁ.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção Hidráulica","situacao":"EM RESCISÃO","dias":169,"vig_inicio":"16/09/2021","vig_final":"16/09/2026","val_contratado":10338740.44,"val_atual":12496811.18,"val_mensal":0.0,"diretoria":"DO","unidade":"AGUN"},{"ano":"2021","num":"83","empresa":"ICONE TECNOLOGIA E PAGAMENTOS LTDA","objeto":"CONTRATAÇÃO DE EMPRESAS TITULARES DE SOLUÇÕES DE MEIOS DE PAGAMENTOS E GESTÃO DENOMINADA SUBADQUIRESNTES / FACILITADORA, EM PARCERIA E POR MEIO DAS EMPRESAS CREDENCIADORAS (ADQUIRENTES), DISPONIBILIZANDO AO CONSUMIDOR ALTERNATIVAS PARA QUITAR SEUS DÉBITOS À VISTA OU EM PARCELAS MENSAIS, PARA PAGAMENTOS ELETRÔNICOS DE GUIAS DE COBRANÇA DE CONSUMO DE ÁGUA E DEMAIS TAXAS, POR MEIO DE CARTÕES DE DÉBITO OU CRÉDITO, COM A IMEDIATA REGULARIZAÇÃO DA SITUAÇÃO.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":222,"vig_inicio":"08/11/2021","vig_final":"08/11/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2021","num":"106","empresa":"PAGPLAN SERVIÇOS DE TECNOLOGIA EM PAGAMENTOS LTDA","objeto":"Contratação de empresas titulares titulares de soluções de meios de pagamentos e gestão denominada subadquirentes / facilitadora, em parceria por meio das empresas crendeciadoras (adquerentes), disponibilizando ao consumidor alternativas para quitar seus débitos à vista ou em parcelas mensais, para pagamentos eletrônicos de guias de cobrança de consumo de água e demais taxas, por meio de cartões de débito ou crédito, com a imediata regularização da situação.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":274,"vig_inicio":"29/12/2021","vig_final":"30/12/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2022","num":"4","empresa":"EMPRESA DE TECNOLOGIA DA INFORMACAO E COMUNICACAO DO ESTADO DO PARA - PRODEPA","objeto":"PRESTAÇÃO DE SERVIÇOS DE ACESSO À INTERNET, ATRAVÉS DA REDE DE COMUNICAÇÃO DE DADOS DO ESTADO, LINK DE DADOS (FIBRA E RÁDIO) E LICENÇA DE USO DE SISTEMAS ADMINISTRATIVAS E FILAS DE IMPRESSÃO DA COSANPA.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Internet e Conectividade","situacao":"ATIVO","dias":12,"vig_inicio":"12/04/2022","vig_final":"12/04/2026","val_contratado":740272.36,"val_atual":788577.8,"val_mensal":41797.1,"diretoria":"DGL","unidade":"UEST"},{"ano":"2022","num":"8","empresa":"BANCO BRADESCO S.A.","objeto":"Contratação de instituições financeiras e afins, autorizadas pelo Banco Central do Brasil a funcionar na forma de banco múltiplo, comercial ou cooperativo e cooperativa de crédito, interessadas em oportunizar a concessão de empréstimos em consignação em folha de pagamento para os empregados da Companhia de Saneamento do Pará - COSANPA.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Serviços Bancários","situacao":"ATIVO","dias":506,"vig_inicio":"19/08/2022","vig_final":"19/08/2027","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGP","unidade":"UEAP"},{"ano":"2022","num":"9","empresa":"ANKARA ENGENHARIA LTDA","objeto":"O presente contrato tem como objeto a execução de obras e serviços de recuperação Estrutural dos Reservatórios Apoiados (Conquista e Irurá), do sistema de abastecimento de água do Município de Santarém, Estado do Pará, tudo em conformidade com o Termo de Referência nº 12/2021- DET/USOS (Anexo 1 e seus Apêndices), e na proposta da CONTRATADA, partes integrantes e indissociáveis deste instrumento.","categoria":"Obras e Engenharia","subcategoria":"Recuperação/Revitalização","situacao":"ATIVO","dias":4,"vig_inicio":"06/04/2022","vig_final":"04/04/2026","val_contratado":5177912.25,"val_atual":9984395.28,"val_mensal":0.0,"diretoria":"DET","unidade":"USOS"},{"ano":"2022","num":"10","empresa":"ALLFLEX COMERCIO E SERVICOS DE MOBILIARIO LTDA","objeto":"Este Contrato tem como objeto o fornecimento de mobiliário em geral, conforme condições, quantidades e exigências estabelecidas no Termo de Referência da Ata de Registro de Preços - (Anexo I e seus Apêndices), do Pregão Eletrônico SRP nº 18/2021 - UNIFESSPA, partes integrantes e indissociáveis deste instrumento. 1.1. O fornecimento do objeto contratual é referente aos Itens 7, 13, 25, 26, 27, 30, 35, 61, 63, 65, 67, 69, 72, 78, 79, 81, 82, 83, 85, 86, 87, 88, 101, 104, 105, 108, 109, 111, 112, 113, 115, 117, 119, 124, 125, 126, 127, 128, 129, 130 - ATA-110 do Edital do Pregão Eletrônico SRP nº 18/2021 - UNIFESSPA, e ao Itens 2, 57, 62, 70, 71, 73, 77 - ATA-115 do Edital do Pregão Eletrônico SRP nº 18/2021 - UNIFESSPA.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais de Escritório e Higiene","situacao":"ATIVO","dias":376,"vig_inicio":"11/04/2022","vig_final":"11/04/2027","val_contratado":750183.99,"val_atual":750183.99,"val_mensal":5465.33,"diretoria":"DGL","unidade":"UESG"},{"ano":"2022","num":"11","empresa":"NP CAPACITACAO E SOLUCOES TECNOLOGICAS LTDA","objeto":"FORNECIMENTO DE 03 (TRÊS) LICENÇAS ANUAIS PARA ACESSO AOS SERVIÇOS DO SISTEMA BANCO DE PREÇOS, INCLUINDO TREINAMENTO ILIMITADO E DEMAIS ESPECIFICAÇÕES CONSTANTES NO PROCESSO DE DISPENSA.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"TÉRMINO DA VIGÊNCIA","dias":33,"vig_inicio":"03/05/2022","vig_final":"03/05/2026","val_contratado":29625.0,"val_atual":21244.66,"val_mensal":0.0,"diretoria":"DGL","unidade":"UECP"},{"ano":"2022","num":"12","empresa":"MOVIMENTO REPÚBLICA DE EMAÚS","objeto":"PRESTAÇÃO DE SERVIÇOS DE RECRUTAMENTO, SELEÇÃO E ACOMPANHAMENTO DE APRENDIZES PARA A COMPANHIA DE SANEAMENTO DO PARÁ - COSANPA","categoria":"Serviços Administrativos e RH","subcategoria":"Recursos Humanos","situacao":"ATIVO","dias":74,"vig_inicio":"13/06/2022","vig_final":"13/06/2026","val_contratado":263413.8,"val_atual":349430.64,"val_mensal":7512.08,"diretoria":"DGP","unidade":"UEAP"},{"ano":"2022","num":"13","empresa":"ASSOCIAÇÃO PROATIVA DO PARÁ APPA","objeto":"PRESTAÇÃO DE SERVIÇOS DE RECRUTAMENTO, SELEÇÃO E ACOMPANHAMENTO DE APREDIZES PARA A COMPANHIA DE SANEAMENTO DO PARÁ - COSANPA.","categoria":"Serviços Administrativos e RH","subcategoria":"Recursos Humanos","situacao":"ATIVO","dias":111,"vig_inicio":"20/07/2022","vig_final":"20/07/2026","val_contratado":56492.6,"val_atual":79645.2,"val_mensal":51263.08,"diretoria":"DGP","unidade":"UEAP"},{"ano":"2022","num":"14","empresa":"TICKET SOLUCOES HDFGT S/A","objeto":"PRESTAÇÃO DOS SERVIÇOS DE ADMINISTRAÇÃO E GERENCIAMENTO INFORMATIZADO DE FORNECIMENTO CONTÍNUO E INITERRUPTO DE COMBUSTÍVEIS E AGENTE REDUTOR LÍQUIDO AUTOMOTIVO (ARLA 32), EM REDE DE POSTOS CREDENCIADOS EM TODO TERRÍTORIO NACIONAL PARA VEÍCULOS AUTOMOTORES E EQUIPAMENTOS INTEGRANTES DA FROTA DA ADMINISTRAÇÃO PÚBLICA DO PODER EXECUTIVO DO ESTADO DO PARÁ, COM UTILIZAÇÃO DE CARTÃO MAGNÉTICO.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":35,"vig_inicio":"05/05/2022","vig_final":"05/05/2026","val_contratado":2059426.44,"val_atual":2471311.73,"val_mensal":137248.2,"diretoria":"DGL","unidade":"UETR"},{"ano":"2022","num":"16","empresa":"CARMONA CABRERA CONSTRUTORA DE OBRAS S.A.","objeto":"CONCLUSÃO DAS OBRAS E SERVIÇOS, INCLUINDO A ELABORAÇÃO DE PROJETOS COMPLEMENTARES E O FORNECIMENTO DE MATERIAIS E EQUIPAMENTOS, PARA A IMPLANTAÇÃO DO SISTEMA DE ABASTECIMENTO DE ÁGUA, NA SEDE DO MUNICÍPIO DE ALENQUER, ESTADO DO PARÁ.","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":311,"vig_inicio":"04/05/2022","vig_final":"05/02/2027","val_contratado":54915077.5,"val_atual":63538058.54,"val_mensal":0.0,"diretoria":"DET","unidade":"UEPC"},{"ano":"2022","num":"17","empresa":"F F DE ALENCAR EIRELI","objeto":"FORNECIMENTO DE PRODUTOS DE HIGIENE E LIMPEZA PARA ATENDER AS NECESSIDADES DOS SETORES OPERACIONAIS DA COSANPA EM BELÉM, MARABÁ E SANTARÉM, CONFORME ESPECIFICAÇÕES CONSTANTES NO TERMO DE REFERÊNCIA Nº DPL/001/2022 E (ANEXO I).","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais de Escritório e Higiene","situacao":"ATIVO","dias":90,"vig_inicio":"29/06/2022","vig_final":"29/06/2026","val_contratado":331881.6,"val_atual":126549.84,"val_mensal":8393.96,"diretoria":"DGL","unidade":"UEAD"},{"ano":"2022","num":"18","empresa":"CARMONA CABRERA CONSTRUTORA DE OBRAS S.A.","objeto":"EXECUÇÃO DE OBRAS E SERVIÇOS DE AMPLIAÇÃO E REVITALIZAÇÃO DO SISTEMA DE ABASTECIMENTO DE ÁGUA DO 10º SETOR, NO MUNICÍPIO DE BELÉM, NO ESTADO DO PARÁ, EM CONFORMIDADE COM OS PROJETOS BÁSICOS , ESPECIFICAÇÕES E QUANTITATIVOS, INCLUINDO OS DETALHAMENTOS NECESSÁRIOS, DE ACORDO COM O TERMO DE REFERÊNCIA Nº 006/2022-USOS/DET (ANEXO I E SEUS APÊNDICES), E NA PROPOSTA DE PREÇOS DA CONTRATADA, PARTES INTEGRANTES E INDISSOCIÁVEIS DESTE INSTRUMENTO.","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":98,"vig_inicio":"08/06/2022","vig_final":"07/07/2026","val_contratado":24606276.24,"val_atual":27023993.48,"val_mensal":0.0,"diretoria":"DET","unidade":"UEPC"},{"ano":"2022","num":"19","empresa":"CARMONA CABRERA CONSTRUTORA DE OBRAS S.A.","objeto":"EXECUÇÃO DE OBRAS E SERVIÇOS DE AMPLIAÇÃO E REVITALIZAÇÃO DO SISTEMA DE ABASTECIMENTO DE ÁGUA DO 3º SETOR, NO MUNICÍPIO DE BELÉM, NO ESTADO DO PARÁ, EM CONFORMIDADE COM OS PROJETOS BÁSICOS, ESPECIFICAÇÕES E QUANTITATIVOS, INCLUINDO OS DETALHAMENTOS NECESSÁRIOS.","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":250,"vig_inicio":"08/06/2022","vig_final":"06/12/2026","val_contratado":25915467.12,"val_atual":18728795.45,"val_mensal":0.0,"diretoria":"DET","unidade":"USOS"},{"ano":"2022","num":"20","empresa":"NP UNIFORMES LTDA","objeto":"FORNECIMENTO DE UNIFORMES DESTINADOS A ATENDER OS SETORES DA COSANPA, LOCALIZADOS NA REGIÃO METROPOLITANA DE BELÉM E NOS MUNICÍPIOS DE CASTANHAL, MARABÁ E SANTARÉM, CONFORME ESPECIFICAÇÃO E QUATITATIVO DO TERMO DE REFERÊNCIA Nº 27/2021 - DPL (ANEXO I), PARTE INTEGRANTE E INDISSOCIÁVEL DESTE INSTRUMENTO. O FORNECIMENTO DO OBJETO CONTRATUAL SE REFERE AOS GRUPOS 1,2,3 E 4.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"EPI e EPC","situacao":"ATIVO","dias":106,"vig_inicio":"15/07/2022","vig_final":"15/07/2026","val_contratado":750411.86,"val_atual":1012960.52,"val_mensal":70000.0,"diretoria":"DGP","unidade":"UESM"},{"ano":"2022","num":"25","empresa":"ITAU BANCO S/A","objeto":"CONTRATAÇÃO DE INSTITUIÇÕES FINANCEIRAS AUTORIZADAS A FUNCIONAR PELO BANCO CENTRAL DO BRASIL NA FORMA DE BANCO MULTIPO, COMERCIAL, OU COOPERATIVO, E COOPERATIVO DE CRÉDITO, PARA PRESTAÇÃO DE SERVIÇOS BANCÁRIOS QUE PERMITE A LIQUIDAÇÃO DE FATURAS POR MEIO DE DOCUMENTOS DE COBRANÇA ELETRONICA COM CÓDIGO DE BARRAS NO PADRÃO FEBRABAN.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":85,"vig_inicio":"24/06/2022","vig_final":"24/06/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2022","num":"27","empresa":"BANCO BRADESCO S.A.","objeto":"Contratação de instituições financeiras autorizadas a funcionar pelo Banco Central do Brasil na forma de banco Múltiplo, Comercial ou Cooperativo de Crédito, para a prestação de serviços bancários que permite a liquidação de faturas por meio de documentos de cobrança eletrônica com código de barras no padrão FEBRABAN, por intermédio de suas agências e/ou conveniadas, em abrangência nacional.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":99,"vig_inicio":"08/07/2022","vig_final":"08/07/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2022","num":"28","empresa":"TCM SERVICOS DE LIMPEZA E CONSERVACAO LTDA.","objeto":"PRESTAÇÃO DE SERVIÇOS DE COBRANÇA POR ÊXITO, DE CLIENTES INADIMPLENTES COM A COSANPA, LOTE I - UNIDADE DE NEGÓCIOS - UNISUL.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Cobrança","situacao":"EM RESCISÃO","dias":111,"vig_inicio":"20/07/2022","vig_final":"20/07/2026","val_contratado":2684439.46,"val_atual":2762456.25,"val_mensal":0.0,"diretoria":"DFM","unidade":"USRC"},{"ano":"2022","num":"29","empresa":"TCM SERVICOS DE LIMPEZA E CONSERVACAO LTDA.","objeto":"PRESTAÇÃO DE SERVIÇOS DE COBRANÇA POR ÊXITO, DE CLIENTES INADIMPLENTES COM A COSANPA, LOTE II - UNIDADE DE NEGÓCIOS - UNAM.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Cobrança","situacao":"EM RESCISÃO","dias":111,"vig_inicio":"20/07/2022","vig_final":"20/07/2026","val_contratado":2733893.83,"val_atual":2813347.89,"val_mensal":0.0,"diretoria":"DFM","unidade":"USRC"},{"ano":"2022","num":"30","empresa":"TCM SERVICOS DE LIMPEZA E CONSERVACAO LTDA.","objeto":"PRESTAÇÃO DE SERVIÇOS DE COBRANÇA POR ÊXITO, DE CLIENTES INADIMPLENTES COM A COSANPA, LOTE III - UNIDADE DE NEGÓCIOS UNBR.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Cobrança","situacao":"EM RESCISÃO","dias":111,"vig_inicio":"20/07/2022","vig_final":"20/07/2026","val_contratado":2576964.53,"val_atual":2749686.27,"val_mensal":0.0,"diretoria":"DFM","unidade":"USRC"},{"ano":"2022","num":"33","empresa":"BANCO SANTANDER (BRASIL) S.A.","objeto":"CONTRATAÇÃO DE INSTITUIÇÕES FINANCEIRAS AUTORIZADAS A FUNCIONAR PELO BANCO CENTRAL DO BRASIL NA FORMA DE BANCO MULTIPLO, COMERCIAL OU COOPERATIVO.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":145,"vig_inicio":"23/08/2022","vig_final":"23/08/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2022","num":"36","empresa":"BANCO DO BRASIL","objeto":"CONTRATAÇÃO DE INSTITUIÇÕES FINANCEIRAS AUTORIZADAS A FUNCIONAR PELO BANCO CENTRAL DO BRASIL NA FORMA DE BANCO MÚLTIPLO.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":145,"vig_inicio":"23/08/2022","vig_final":"23/08/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2022","num":"38","empresa":"BANCO COOPERATIVO SICOOB S.A.","objeto":"Prestação de serviços bancários que permite a liquidação de faturas por meio de documentos de cobrança eletrônica com código de barras no padrão FEBRABAN.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":181,"vig_inicio":"28/09/2022","vig_final":"28/09/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2022","num":"39","empresa":"BANCO DO ESTADO DO PARA S.A.","objeto":"CONTRATAÇÃO DE INSTITUIÇÕES FINANCEIRAS AUTORIZADAS A FUNCIONAR PELO BANCO CENTRAL DO BRASIL NA FORMA DE BANCO MULTIPLO, COMERCIAL OU COOPERATIVO.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":152,"vig_inicio":"30/08/2022","vig_final":"30/08/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2022","num":"40","empresa":"CARMONA CABRERA CONSTRUTORA DE OBRAS S.A.","objeto":"Execução dos serviços dos Sistemas de Automação e Eletricidade, da Estrutura do Tratamento Preliminar e do Canal de Entrada de Esgoto Bruto e instalação de equipamentos e finalização das obras de recuperação e ampliação da capacidade do sistema de elevação e destino final do esgoto do UNA.","categoria":"Obras e Engenharia","subcategoria":"SES (Sistema de Esgotamento Sanitário)","situacao":"ATIVO","dias":152,"vig_inicio":"30/08/2022","vig_final":"30/08/2026","val_contratado":21154114.33,"val_atual":11596520.42,"val_mensal":0.0,"diretoria":"DET","unidade":"USOS"},{"ano":"2022","num":"48","empresa":"GREENTEX QUIMICA LTDA.","objeto":"Fornecimento de 6000 (seis mil) quilos de Antiespumante à base água, a serem utilizados nos processos de tratamento de esgoto doméstico em Santarém (ETE Mapiri) e em Belém.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Produtos para Tratamento de Água","situacao":"ATIVO","dias":172,"vig_inicio":"19/09/2022","vig_final":"19/09/2026","val_contratado":53100.0,"val_atual":31860.0,"val_mensal":14160.0,"diretoria":"DO","unidade":"USTE"},{"ano":"2022","num":"49","empresa":"J V COMERCIOS E SERVICOS LTDA","objeto":"FORNECIMENTO DE EQUIPAMENTOS DE PROTEÇÃO INDIVIDUAL (EPI), DETINADOS A ATENDER OS SETORES DA COSANPA, LOCALIZADOS NA REGIÃO METROPOLITANA DE BELÉM.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"EPI e EPC","situacao":"ATIVO","dias":189,"vig_inicio":"05/10/2022","vig_final":"06/10/2026","val_contratado":822855.92,"val_atual":878701.18,"val_mensal":58000.0,"diretoria":"DGP","unidade":"UESM"},{"ano":"2022","num":"50","empresa":"F F DE ALENCAR EIRELI","objeto":"Fornecimento de Equipamentos de Proteção Individual (EPI), destinados a atender os setores da COSANPA, localizados na região metropolitana de Belém e nos municípios de Castanhal, Marabá e Santarém.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"EPI e EPC","situacao":"ATIVO","dias":353,"vig_inicio":"19/09/2022","vig_final":"19/03/2027","val_contratado":503419.94,"val_atual":565716.03,"val_mensal":0.0,"diretoria":"DGP","unidade":"UESM"},{"ano":"2022","num":"53","empresa":"BANCO MERCANTIL DO BRASIL S.A.","objeto":"Contratação de instituições financeiras autorizadas a funcionar pelo Banco Central do Brasil na forma de banco Múltiplo, Comercial ou Cooperativo, para prestação de serviços bancários.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":201,"vig_inicio":"18/10/2022","vig_final":"18/10/2026","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2022","num":"64","empresa":"EQUILIBRIUM WEB SERVIÇOS DE INFORMÁTICA LTDA - EPP","objeto":"Prestação de serviços técnicos de desenvolvimento, customização e manutenção de página WEB e INTERNET, com utilização de PHP, HTML, JAVASCRIPT, CSS, Dreamweaver, WordPress, MySQL, PostgreSQL, Oracle, Joomia, Plataforma MOBILE e outras linguagens compatíveis com a plataforma da COSANPA.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"EM RESCISÃO","dias":259,"vig_inicio":"15/12/2022","vig_final":"15/12/2026","val_contratado":75000.0,"val_atual":82069.7,"val_mensal":0.0,"diretoria":"DGL","unidade":"UEDS"},{"ano":"2022","num":"69","empresa":"BANCO SANTANDER (BRASIL) S.A.","objeto":"CONTRATACAO DE INSTITUICOES FINANCEIRAS E AFINS, INTERESSADAS EM OPORTUNIZAR A CONCESSÃO DE EMPRÉSTIMOS EM CONSIGNACAO EM FOLHA DE PAGAMENTO PARA OS EMPREGADOS DA COSANPA.","categoria":"Serviços Financeiros e Bancários","subcategoria":"Serviços Bancários","situacao":"ATIVO","dias":672,"vig_inicio":"01/02/2023","vig_final":"01/02/2028","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DGP","unidade":"UEAP"},{"ano":"2022","num":"70","empresa":"G.G.M NEGRAO DESENVOLVIMENTO DE SISTEMAS - EIRELI - EPP","objeto":"Prestação de serviços técnicos por empresa especializada em tecnologia da informação, para desenvolvimento e manutenção de rotinas do sistema de Recursos Humanos PROTHEUS, com vistas a atender as especialidades da COSANPA, instalação de atualizações de versões do núcleo do sistema disponibilizados pela TOTVS, e suporte técnico ao sistema","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":94,"vig_inicio":"03/01/2023","vig_final":"03/07/2026","val_contratado":141990.0,"val_atual":154217.96,"val_mensal":12851.49,"diretoria":"DGL","unidade":"UEDS"},{"ano":"2023","num":"5","empresa":"LIMPAR LIMPEZA E CONSERVACAO LTDA - EPP","objeto":"Contratação de empresa especializada para prestação de serviços continuados de limpeza as atividades de conservação e manutenção e jardinagem, com fornecimento de toda mão-de-obra, materiais e equipamentos, nas áreas da COSANPA, no Estado do Pará.","categoria":"Serviços de Apoio Operacional","subcategoria":"Limpeza e Conservação","situacao":"ATIVO","dias":348,"vig_inicio":"13/03/2023","vig_final":"14/03/2027","val_contratado":1585420.2,"val_atual":1314987.48,"val_mensal":109582.29,"diretoria":"DGL","unidade":"UESG"},{"ano":"2023","num":"19","empresa":"MOVIMENTO REPÚBLICA DE EMAÚS","objeto":"A contratação de empresa que atue como agente de integração qualificado na formação técnico profissional para a prestação de serviços de recrutamento, seleção e acompanhamento de aprendizes.","categoria":"Serviços Administrativos e RH","subcategoria":"Recursos Humanos","situacao":"ATIVO","dias":55,"vig_inicio":"25/05/2023","vig_final":"25/05/2026","val_contratado":161246.4,"val_atual":198532.32,"val_mensal":6483.81,"diretoria":"DGP","unidade":"UEAP"},{"ano":"2023","num":"22","empresa":"L M Mota Serviços Técnicos Especializados Ltda","objeto":"A Prestação de Serviços de Manutenção Predial Preventiva e Corretiva, como fornecimento de materiais necessários, visando execução de atividades de manutenção, reforma e reparos de instalações prediais, elétricas, hidrossanitárias, telefonia, lógica, de climatização e de construção civil em geral.","categoria":"Serviços de Apoio Operacional","subcategoria":"Manutenção Predial","situacao":"TÉRMINO DA VIGÊNCIA","dias":55,"vig_inicio":"25/05/2023","vig_final":"25/05/2026","val_contratado":25599890.64,"val_atual":12799945.32,"val_mensal":160534.5,"diretoria":"DGL","unidade":"UESG"},{"ano":"2023","num":"26","empresa":"MN TECNOLOGIA E TREINAMENTO LTDA","objeto":"A aquisição de Software BIM para modelagem e dimensionamento do Projeto de Fundações e Estrutural de edificações.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":68,"vig_inicio":"07/06/2023","vig_final":"07/06/2026","val_contratado":7755.0,"val_atual":7755.0,"val_mensal":0.0,"diretoria":"DET","unidade":"USPA"},{"ano":"2023","num":"36","empresa":"New Parts Comercial Ltda","objeto":"A aquisição de Equipamentos de Proteção Coletiva (EPC), destinados a atender os setores da COSANPA da capital e interior do estado.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"EPI e EPC","situacao":"ATIVO","dias":96,"vig_inicio":"05/07/2023","vig_final":"05/07/2026","val_contratado":97497.6,"val_atual":100870.66,"val_mensal":8405.89,"diretoria":"DGP","unidade":"UESM"},{"ano":"2023","num":"39","empresa":"VFATEC SOLUCOES EM SISTEMAS S/S LTDA.","objeto":"A prestação de serviços técnicos de manutenção do módulo EFD/REINF conforme legislação em vigor, para posterior validação e remessa aos órgãos fiscalizadores.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":101,"vig_inicio":"10/07/2023","vig_final":"10/07/2026","val_contratado":19200.0,"val_atual":22800.0,"val_mensal":2000.0,"diretoria":"DGL","unidade":"UEDS"},{"ano":"2023","num":"53","empresa":"HTBR - ARQUITETURA E ENGENHARIA LTDA","objeto":"A prestação de serviços de engenharia de supervisão para fins de gestão e apoio técnico de contratos de elaboração de planos, estudos de concepção, projetos básico e executivo de empreendimentos de água e esgoto da COSANPA.","categoria":"Projetos e Consultoria Técnica","subcategoria":"Consultoria e Supervisão","situacao":"ATIVO","dias":157,"vig_inicio":"05/09/2023","vig_final":"04/09/2026","val_contratado":27965162.29,"val_atual":34897060.61,"val_mensal":0.0,"diretoria":"DET","unidade":"USPA"},{"ano":"2023","num":"54","empresa":"NETMAKE SOLUCOES EM INFORMATICA LTDA","objeto":"A aquisição de 6 Licenças de uso, com suporte ao usuário, pelo período de 12 meses do FRAMEWORK SCRIPTCASE ENTERPRISE para o ambiente WEB.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":150,"vig_inicio":"30/08/2023","vig_final":"28/08/2026","val_contratado":23034.0,"val_atual":23034.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UEDS"},{"ano":"2023","num":"60","empresa":"MIDIA CENTER SERVICOS DE PRODUCAO MUSICAL, CINEMATOGRAFICA E EVENTOS LTDA","objeto":"A Contratação de Pessoa Jurídica para a LOCAÇÃO DE ESTRUTURAS DIVERSAS, para atender as necessidades da Companhia de Saneamento do Pará COSANPA.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":152,"vig_inicio":"31/08/2023","vig_final":"30/08/2026","val_contratado":10476000.0,"val_atual":10476000.0,"val_mensal":0.0,"diretoria":"PRES","unidade":"PRES"},{"ano":"2023","num":"63","empresa":"L MARIA LOPES MAIA ME","objeto":"A prestação de serviços contínuos de recarga, manutenção, descarte e manutenção de segundo e terceiro nível de extintores de incêndio, sob demanda.","categoria":"Serviços de Apoio Operacional","subcategoria":"Vigilância e Segurança","situacao":"ATIVO","dias":1,"vig_inicio":"02/10/2023","vig_final":"01/04/2026","val_contratado":3055.0,"val_atual":3327.89,"val_mensal":0.0,"diretoria":"DGP","unidade":"UESM"},{"ano":"2023","num":"64","empresa":"F F DE ALENCAR EIRELI","objeto":"O fornecimento de materiais de expediente, pelo prazo de 12 (doze) meses, destinados a atender as necessidades da Companhia de Saneamento do Pará.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais de Escritório e Higiene","situacao":"ATIVO","dias":172,"vig_inicio":"20/09/2023","vig_final":"19/09/2026","val_contratado":94169.62,"val_atual":78209.71,"val_mensal":6517.48,"diretoria":"DGL","unidade":"UEAD"},{"ano":"2023","num":"66","empresa":"ALA CONSTRUÇÕES, COMERCIO E SERVIÇOS LTDA","objeto":"A Contratação de empresa de engenharia para conclusão de obras de ampliação do sistema de abastecimento de água da cidade de BREVES, Setor 02 no Estado do Pará.","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":86,"vig_inicio":"25/09/2023","vig_final":"25/06/2026","val_contratado":17756007.28,"val_atual":19439306.58,"val_mensal":0.0,"diretoria":"DET","unidade":"DET"},{"ano":"2023","num":"67","empresa":"MÉTODO TELECOMUNICAÇÕES E COMÉRCIO LTDA","objeto":"A contratação de pessoa Jurídica especializada na prestação de Serviços de Telefonia Fixa Comutada (STFC), com o fornecimento de Discagem Direta a Ramal (DDR) ou similar.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Internet e Conectividade","situacao":"ATIVO","dias":199,"vig_inicio":"17/10/2023","vig_final":"16/10/2026","val_contratado":2612355.47,"val_atual":2612355.47,"val_mensal":2600.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2023","num":"69","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"A prestação de serviços comerciais diversos, serviços de cobrança e leitura com impressão simultânea, de clientes pertencentes às unidades de negócios UNIBA (Santarém), unidade de negócios UNINE (Castanhal e Bragança).","categoria":"Serviços Administrativos e RH","subcategoria":"Cobrança","situacao":"ATIVO","dias":186,"vig_inicio":"04/10/2023","vig_final":"03/10/2026","val_contratado":11145039.35,"val_atual":11145039.35,"val_mensal":401832.22,"diretoria":"DFM","unidade":"USRC"},{"ano":"2023","num":"72","empresa":"AUDIMEC - AUDITORES INDEPENDENTES S/S","objeto":"A Prestação de serviços regulares e especiais de auditoria independente a serem realizados na COSANPA conforme o padrão contábil internacional (IFRS).","categoria":"Projetos e Consultoria Técnica","subcategoria":"Auditoria e Fiscalização","situacao":"ATIVO","dias":206,"vig_inicio":"24/10/2023","vig_final":"23/10/2026","val_contratado":41988.0,"val_atual":43704.1,"val_mensal":3642.01,"diretoria":"DFM","unidade":"USCO"},{"ano":"2023","num":"74","empresa":"NOVIDADES CABANO COMERCIO DE ARTIGOS DE PAPELARIA LTDA.","objeto":"O fornecimento de COPOS E PAPEL, para as unidades da COSANPA, localizadas na Região Metropolitana de Belém, no estado do Pará.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais de Escritório e Higiene","situacao":"ATIVO","dias":206,"vig_inicio":"24/10/2023","vig_final":"23/10/2026","val_contratado":198980.0,"val_atual":108949.55,"val_mensal":7989.12,"diretoria":"DGL","unidade":"UEAD"},{"ano":"2023","num":"77","empresa":"SERVICOS DE SANEAMENTO E MEIO AMBIENTE LTDA","objeto":"A prestação de serviços de controle e prevenção de pragas, vetores urbanos e animais sinantropicos (sanitização, desinsetização, descupinização e desratização) nos prédios da COSANPA.","categoria":"Serviços de Apoio Operacional","subcategoria":"Controle de Pragas","situacao":"ATIVO","dias":213,"vig_inicio":"31/10/2023","vig_final":"30/10/2026","val_contratado":294707.9,"val_atual":202899.8,"val_mensal":15102.77,"diretoria":"DGL","unidade":"UESG"},{"ano":"2023","num":"78","empresa":"NOPRAGAS CONTROLE AMBIENTAL LTDA","objeto":"A prestação de serviços de controle e prevenção de pragas, vetores urbanos e animais sinantropicos (sanitização, desinsetização, descupinização e desratização) nos prédios da COSANPA.","categoria":"Serviços de Apoio Operacional","subcategoria":"Controle de Pragas","situacao":"EM RESCISÃO","dias":208,"vig_inicio":"25/10/2023","vig_final":"25/10/2026","val_contratado":50349.6,"val_atual":52368.9,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESG"},{"ano":"2023","num":"81","empresa":"AXXON OIL LUBRIFICANTES LTDA","objeto":"O fornecimento de óleo lubrificantes, graxa, fluido de freio, detergente desengraxante e detergente automotivo para máquinas e veículos pelo prazo de 12 (doze) meses.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":207,"vig_inicio":"25/10/2023","vig_final":"24/10/2026","val_contratado":276813.2,"val_atual":276813.2,"val_mensal":21666.67,"diretoria":"DGL","unidade":"UEAD"},{"ano":"2023","num":"88","empresa":"BAUMINAS QUÍMICA N/NE LTDA","objeto":"O fornecimento de sulfato de alumínio líquido isento de ferro com assistência técnicas.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Produtos para Tratamento de Água","situacao":"ATIVO","dias":579,"vig_inicio":"01/11/2023","vig_final":"31/10/2027","val_contratado":22407650.0,"val_atual":17092438.0,"val_mensal":341826.94,"diretoria":"DO","unidade":"USAG"},{"ano":"2023","num":"99","empresa":"AHARDS SISTEMAS S.A.","objeto":"A prestação de serviços de suporte e manutenção do sistema PontoWEB, possuindo controle de Acesso Biométrico e Software de Apuração.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":256,"vig_inicio":"13/12/2023","vig_final":"12/12/2026","val_contratado":111600.0,"val_atual":56508.44,"val_mensal":0.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2024","num":"4","empresa":"J P AROUCHE MECANICA E ELÉTRICA INDUSTRIAL EIRELI","objeto":"A prestação de serviços de confecção, retífica e/ou usinagem de peças, dos equipamentos eletromecânicos com fornecimento de matéria prima para atender as unidades operacionais da Região Metropolitana de Belém.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção Eletromecânica","situacao":"ATIVO","dias":280,"vig_inicio":"05/01/2024","vig_final":"05/01/2027","val_contratado":3874492.0,"val_atual":4061607.2,"val_mensal":125085.76,"diretoria":"DO","unidade":"USMA"},{"ano":"2024","num":"6","empresa":"NORTE GESTÃO DE DOCUMENTOS LTDA.","objeto":"A prestação de serviço contínuo de gestão de documentação para os serviços continuados de organização, aplicação do Plano de Classificação e Tabelas de Temporalidade Documental PCTTD.","categoria":"Serviços Administrativos e RH","subcategoria":"Comunicação e Correspondência","situacao":"ATIVO","dias":292,"vig_inicio":"18/01/2024","vig_final":"17/01/2027","val_contratado":3348900.0,"val_atual":2509276.0,"val_mensal":25000.0,"diretoria":"DGL","unidade":"UEBL"},{"ano":"2024","num":"7","empresa":"NORTE COMERCIO, ENGENHARIA E LOCACOES LTDA","objeto":"O fornecimento de ortopolifosfato de sódio sólido (granulado/pó) com assistência técnica.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Produtos para Tratamento de Água","situacao":"ATIVO","dias":292,"vig_inicio":"18/01/2024","vig_final":"17/01/2027","val_contratado":6140264.0,"val_atual":6589879.21,"val_mensal":343052.0,"diretoria":"DO","unidade":"USAG"},{"ano":"2024","num":"8","empresa":"ETICE - EMPRESA DE TECNOLOGIA DA INFORMAÇÃO DO CEARÁ","objeto":"A prestação de serviços de computação em nuvem pública, no modelo Software como Serviço (SaaS), para o fornecimento de licença do software Google Workspace.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":325,"vig_inicio":"19/02/2024","vig_final":"19/02/2027","val_contratado":1416583.47,"val_atual":423538.2,"val_mensal":28446.4,"diretoria":"DGL","unidade":"UEDS"},{"ano":"2024","num":"9","empresa":"VÓLUS TECNOLOGIA E GESTÃO DE BENEFÍCIOS LTDA","objeto":"O gerenciamento por meio eletrônico e administração de rede de estabelecimentos com cartões farmácia bandeirados para aquisição de medicamentos e produtos farmacêuticos pelos empregados da COSANPA.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":298,"vig_inicio":"23/01/2024","vig_final":"23/01/2027","val_contratado":665357.35,"val_atual":665357.35,"val_mensal":31000.0,"diretoria":"DGP","unidade":"UERT"},{"ano":"2024","num":"12","empresa":"HIDROGERON TRATAMENTO DE ÁGUA E ESGOTO LTDA,","objeto":"A contratação de serviço de locação de máquinas para produção e aplicação de hipoclorito de sódio, referente ao Lote 01.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Produtos para Tratamento de Água","situacao":"ATIVO","dias":106,"vig_inicio":"16/07/2024","vig_final":"15/07/2026","val_contratado":4529610.0,"val_atual":4920140.37,"val_mensal":370194.66,"diretoria":"DO","unidade":"USAG"},{"ano":"2024","num":"13","empresa":"SUALL INDÚSTRIA E COMÉRCIO LTDA","objeto":"Contratação de serviço de locação de máquinas para produção e aplicação de hipoclorito de sódio.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Produtos para Tratamento de Água","situacao":"EM RESCISÃO","dias":168,"vig_inicio":"16/09/2024","vig_final":"15/09/2026","val_contratado":6685284.0,"val_atual":6685284.0,"val_mensal":0.0,"diretoria":"DO","unidade":"USAG"},{"ano":"2024","num":"18","empresa":"C2A SERVICOS EM TECNOLOGIA DA INFORMATICA LTDA","objeto":"Prestação de serviço de locação de impressoras/copiadoras, a fim de suprir as necessidades de diversas áreas da COSANPA.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":345,"vig_inicio":"12/03/2024","vig_final":"11/03/2027","val_contratado":624995.4,"val_atual":385860.29,"val_mensal":7808.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2024","num":"19","empresa":"STONE TECNOLOGIA LTDA","objeto":"Fornecimento de solução de internet por fibra óptica do tipo monomodo apagado, com link dedicado.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Internet e Conectividade","situacao":"ATIVO","dias":346,"vig_inicio":"13/03/2024","vig_final":"12/03/2027","val_contratado":70920.0,"val_atual":70920.0,"val_mensal":5910.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2024","num":"20","empresa":"OSVALDO B DOS SANTOS MANUTENÇÃO LTDA","objeto":"Prestação de serviços de rebobinagem em enrolamentos dos estatores de motores elétricos trifásicos submersos de baixa tensão para acoplamento em bombas submersas de poços artesianos.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção Eletromecânica","situacao":"ATIVO","dias":354,"vig_inicio":"21/03/2024","vig_final":"20/03/2027","val_contratado":2907180.0,"val_atual":2035026.0,"val_mensal":120032.0,"diretoria":"DO","unidade":"USMA"},{"ano":"2024","num":"21","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"Prestação dos serviços especializados de engenharia sanitária, elétrica e mecânica para operação, manutenção (preventiva e corretiva), controle de qualidade, limpeza e conservação nas Unidades Operacionais da COSANPA no Município de Itaituba.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção Eletromecânica","situacao":"ATIVO","dias":173,"vig_inicio":"20/03/2024","vig_final":"20/09/2026","val_contratado":2436724.34,"val_atual":1307475.1,"val_mensal":106684.64,"diretoria":"DO","unidade":"USMA"},{"ano":"2024","num":"23","empresa":"JOSE DA C. T. CARRERA","objeto":"Contratação de pessoa jurídica para desenvolver, customizar e realizar manutenção em sistemas de informação, com utilização de linguagem NATURAL e banco de dados ADABAS.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":8,"vig_inicio":"09/04/2024","vig_final":"08/04/2026","val_contratado":191000.0,"val_atual":200365.18,"val_mensal":16697.66,"diretoria":"DGL","unidade":"UEDS"},{"ano":"2024","num":"24","empresa":"SABARÁ QUÍMICOS E INGREDIENTES LTDA.","objeto":"Fornecimento contínuo de até 759.000 kg/ano de gás cloro liquefeito, com assistência técnica.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Produtos para Tratamento de Água","situacao":"ATIVO","dias":382,"vig_inicio":"17/04/2024","vig_final":"17/04/2027","val_contratado":15665760.0,"val_atual":15665760.0,"val_mensal":889006.08,"diretoria":"DO","unidade":"UEPR"},{"ano":"2024","num":"25","empresa":"SOLUTI - SOLUÇÕES EM NEGÓCIOS INTELIGENTES S/A","objeto":"Fornecimento de Certificado Digital SSL OV Wildcard para servidor Web, padrão internacional, para certificação dos domínios e subdomínios da COSANPA.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Segurança da Informação","situacao":"ATIVO","dias":53,"vig_inicio":"23/05/2024","vig_final":"23/05/2026","val_contratado":2199.0,"val_atual":2313.85,"val_mensal":192.82,"diretoria":"DGL","unidade":"UEDS"},{"ano":"2024","num":"29","empresa":"MAPDATA-TECNOLOGIA,INFORMATICA E COMERCIO LTDA","objeto":"Contratação de 6 licenças de uso da solução de business intelligence Microsoft Power BI Pro, por um período de 12 meses.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"TÉRMINO DA VIGÊNCIA","dias":42,"vig_inicio":"13/05/2024","vig_final":"12/05/2026","val_contratado":3933.96,"val_atual":4141.4,"val_mensal":0.0,"diretoria":"DGL","unidade":"USTI"},{"ano":"2024","num":"30","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"Execução de serviços de manutenção das instalações hidráulicas com retirada de vazamentos em adutoras, rede de distribuição e/ou ramais prediais no município de Itaituba-PA.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção Hidráulica","situacao":"TÉRMINO DA VIGÊNCIA","dias":42,"vig_inicio":"13/05/2024","vig_final":"12/05/2026","val_contratado":2917338.82,"val_atual":3135997.42,"val_mensal":112554.36,"diretoria":"DO","unidade":"AGUN"},{"ano":"2024","num":"34","empresa":"MAR E RIOS SERVICOS TECNICOS, MARITIMOS E SUB-AQUATICOS LTDA","objeto":"Prestação de serviço contínuo de manutenção e conservação de estruturas de captação.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção de Captação","situacao":"ATIVO","dias":53,"vig_inicio":"23/05/2024","vig_final":"23/05/2026","val_contratado":1314244.8,"val_atual":1314244.8,"val_mensal":92886.6,"diretoria":"DO","unidade":"UEPR"},{"ano":"2024","num":"40","empresa":"NORTE COMERCIO, ENGENHARIA E LOCACOES LTDA","objeto":"Fornecimento contínuo de HIDROXIDO DE SÓDIO EM SOLUÇÃO AQUOSA 50%.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Produtos para Tratamento de Água","situacao":"TÉRMINO DA VIGÊNCIA","dias":59,"vig_inicio":"29/05/2024","vig_final":"29/05/2026","val_contratado":8146140.0,"val_atual":8598724.15,"val_mensal":0.0,"diretoria":"DO","unidade":"UEPR"},{"ano":"2024","num":"43","empresa":"SERVIEL SERVIÇOS DE VIGILÂNCIA ELETRÔNICA LTDA","objeto":"A prestação de serviços de locação de contêineres, tipo caçamba estacionária, com capacidade mínima de 5m3, incluindo coleta, transporte e destino final de resíduos sólidos.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":88,"vig_inicio":"27/06/2024","vig_final":"27/06/2026","val_contratado":87600.0,"val_atual":87600.0,"val_mensal":4015.0,"diretoria":"DGL","unidade":"UESG"},{"ano":"2024","num":"47","empresa":"MINAS PLACA LTDA","objeto":"Aquisição de etiquetas de identificação de bens patrimoniais.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Equipamentos Operacionais","situacao":"ATIVO","dias":88,"vig_inicio":"28/06/2024","vig_final":"27/06/2026","val_contratado":3000.0,"val_atual":3000.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESP"},{"ano":"2024","num":"49","empresa":"IT PROTECT SERVIÇOS DE CONSULTORIA EM INFORMÁTICA LTDA","objeto":"Contratação de empresa especializada na prestação de serviços de proteção de perímetro com Firewall Avançado de Próxima Geração.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Segurança da Informação","situacao":"ATIVO","dias":88,"vig_inicio":"28/06/2024","vig_final":"27/06/2026","val_contratado":528000.0,"val_atual":528000.0,"val_mensal":22000.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2024","num":"60","empresa":"G Z MENEGUSSO LTDA","objeto":"Aquisição de roçadeiras STIHL FS 160, a serem utilizadas em atividades de manutenção de áreas verdes, jardins nos setores da COSANPA.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Equipamentos Operacionais","situacao":"ATIVO","dias":141,"vig_inicio":"19/08/2024","vig_final":"19/08/2026","val_contratado":72900.0,"val_atual":72900.0,"val_mensal":0.0,"diretoria":"DGL","unidade":"UESG"},{"ano":"2024","num":"66","empresa":"PREAMBULO OFFICE SISTEMAS E INTEGRAÇÃO LTDA","objeto":"Aquisição de software jurídico para gestão de processos judiciais para atendimento da Procuradoria Jurídica da COSANPA.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":162,"vig_inicio":"10/09/2024","vig_final":"09/09/2026","val_contratado":36019.8,"val_atual":37700.82,"val_mensal":0.0,"diretoria":"PRES","unidade":"PJU"},{"ano":"2024","num":"67","empresa":"FUNDAÇÃO DE AMPARO E DESENVOLVIMENTO DA PESQUISA - FADESP","objeto":"Projeto de desenvolvimento institucional visando a melhoria da eficiência e a eficácia da estrutura administrativa e operacional da instituição, com o objetivo de otimizar processos e funções através da utilização de sistemas de informação.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"EM RESCISÃO","dias":175,"vig_inicio":"23/09/2024","vig_final":"22/09/2026","val_contratado":2216946.72,"val_atual":2329787.75,"val_mensal":0.0,"diretoria":"DGL","unidade":"USTI"},{"ano":"2024","num":"72","empresa":"INFORMATICA EMPRESARIAL LTDA","objeto":"Aquisição de solução de Sistema de Processamento, incluindo servidores completos para Datacenter, licenças Windows Server 2022 Datacenter OEM e Storage NAS.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Infraestrutura de Rede","situacao":"ATIVO","dias":556,"vig_inicio":"09/10/2024","vig_final":"08/10/2027","val_contratado":391774.6,"val_atual":391774.6,"val_mensal":0.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2024","num":"73","empresa":"PUBLITEK TECNOLOGIA LTDA","objeto":"Aquisição de solução de Sistema de Processamento, incluindo servidores completos para Datacenter, licenças Windows Server 2022 Datacenter OEM e Storage NAS.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Infraestrutura de Rede","situacao":"TÉRMINO DA VIGÊNCIA","dias":8,"vig_inicio":"09/10/2024","vig_final":"08/04/2026","val_contratado":13030.96,"val_atual":13030.96,"val_mensal":0.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2024","num":"74","empresa":"ENCIBRA S/A ESTUDOS E PROJETOS DE ENGENHARIA,","objeto":"Consultoria Especializada para o Gerenciamento, Supervisão e Fiscalização de Obras do Sistema de Abastecimento de Água e de Sistema de Esgotamento Sanitário do Estado do Pará.","categoria":"Projetos e Consultoria Técnica","subcategoria":"Consultoria e Supervisão","situacao":"EM RESCISÃO","dias":198,"vig_inicio":"16/10/2024","vig_final":"15/10/2026","val_contratado":66172355.99,"val_atual":66172355.99,"val_mensal":0.0,"diretoria":"PRES","unidade":"ATP"},{"ano":"2024","num":"75","empresa":"H2 O DISTRIBUIDORA LTDA","objeto":"Fornecimento de água mineral natural, para as unidades da COSANPA localizadas no município de Belém e Castanhal.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais de Escritório e Higiene","situacao":"ATIVO","dias":240,"vig_inicio":"27/11/2024","vig_final":"26/11/2026","val_contratado":86400.0,"val_atual":70200.0,"val_mensal":4000.0,"diretoria":"DGL","unidade":"UEAD"},{"ano":"2024","num":"80","empresa":"PURIFICATTA INDÚSTRIA COMÉRCIO E SERVIÇO E PURIFICAÇÃO DE ÁGUA LTDA","objeto":"Fornecimento de máquina com tecnologia exclusiva de processamento para purificação de água por osmose reversa e filtração de água sob a modalidade de aluguel.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Equipamentos Operacionais","situacao":"ATIVO","dias":254,"vig_inicio":"11/12/2024","vig_final":"10/12/2026","val_contratado":190650.0,"val_atual":190650.0,"val_mensal":15000.0,"diretoria":"DGL","unidade":"UESG"},{"ano":"2024","num":"85","empresa":"SDH SOBRAL DIX & HOCHMAN","objeto":"Contratação de empresa especializada em Sistema Público de Escrituração Digital (SPED) que resulte na Escrituração Contábil Digital (ECD) e Escrituração Contábil Fiscal (ECF).","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":276,"vig_inicio":"02/01/2026","vig_final":"01/01/2027","val_contratado":112500.0,"val_atual":112500.0,"val_mensal":9375.0,"diretoria":"DFM","unidade":"UEGT"},{"ano":"2025","num":"2","empresa":"TECNOELETRICA ARPEMON LTDA - EPP","objeto":"Aquisição de 35 painéis elétricos de comando e proteção para partida suave de motores elétricos assíncronos trifásicos.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais Elétricos e Mecânicos","situacao":"ATIVO","dias":319,"vig_inicio":"14/02/2025","vig_final":"13/02/2027","val_contratado":606438.11,"val_atual":606438.11,"val_mensal":202146.04,"diretoria":"DO","unidade":"USMA"},{"ano":"2025","num":"4","empresa":"BANCO DO BRASIL","objeto":"Prestação de serviços arranjo de pagamentos relacionados às transações de pagamentos instantâneos PIX, por meio de QR Code estático e dinâmico e Cobrança Escritural (Boleto).","categoria":"Serviços Financeiros e Bancários","subcategoria":"Arrecadação e Meios de Pagamento","situacao":"ATIVO","dias":323,"vig_inicio":"18/02/2025","vig_final":"17/02/2027","val_contratado":0.0,"val_atual":0.0,"val_mensal":0.0,"diretoria":"DFM","unidade":"UEAR"},{"ano":"2025","num":"7","empresa":"PAES, ALMEIDA & ALBUQUERQUE ADVOGADOS","objeto":"Prestação de serviços objetivando o reconhecimento judicial da imunidade tributária recíproca e a alteração dos regimes de recolhimento de PIS e da COFINS do não-cumulativo para o cumulativo.","categoria":"Projetos e Consultoria Técnica","subcategoria":"Consultoria e Supervisão","situacao":"ATIVO","dias":1408,"vig_inicio":"07/02/2025","vig_final":"06/02/2030","val_contratado":7676584.95,"val_atual":7676584.95,"val_mensal":0.0,"diretoria":"PRES","unidade":"PRES"},{"ano":"2025","num":"8","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"Contratação de empresa especializada para a operação das instalações da unidade de envasamento de água tratada denominada Água Bolonha.","categoria":"Obras e Engenharia","subcategoria":"SAA (Sistema de Abastecimento de Água)","situacao":"ATIVO","dias":326,"vig_inicio":"21/02/2025","vig_final":"20/02/2027","val_contratado":926107.32,"val_atual":496717.32,"val_mensal":0.0,"diretoria":"DO","unidade":"APSDO"},{"ano":"2025","num":"16","empresa":"SRA CARVALHO EIRELI - ME","objeto":"Prestação de serviços contínuos de conservação, limpeza e manutenção de unidade operacionais das estações de tratamento de água pertencentes ao complexo produtor Bolonha (ETA BOLONHA, ETA 5º SETOR E ETA SÃO BRÁS).","categoria":"Serviços de Apoio Operacional","subcategoria":"Limpeza e Conservação","situacao":"ATIVO","dias":365,"vig_inicio":"01/04/2025","vig_final":"31/03/2027","val_contratado":2653656.88,"val_atual":2653656.88,"val_mensal":90810.65,"diretoria":"DO","unidade":"UEPR"},{"ano":"2025","num":"20","empresa":"GLOBAL DRIVES SOLUTION IMPORTS LTDA","objeto":"Aquisição de 210 metros de cabo condutor elétrico flexível tripolar de cobre, bitola de 3x120mm², destinado à instalação dos motores elétricos da captação de água superficial do Rio Trombetas.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais Elétricos e Mecânicos","situacao":"TÉRMINO DA VIGÊNCIA","dias":24,"vig_inicio":"25/04/2025","vig_final":"24/04/2026","val_contratado":89247.9,"val_atual":89247.9,"val_mensal":0.0,"diretoria":"DO","unidade":"USMA"},{"ano":"2025","num":"21","empresa":"NORTE SERVICOS DE MAO DE OBRA EIRELI","objeto":"Prestação de serviços contínuos de condução veicular, na função de motorista, com dedicação exclusiva de mão de obra.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":41,"vig_inicio":"12/05/2025","vig_final":"11/05/2026","val_contratado":8951232.87,"val_atual":8951232.87,"val_mensal":230000.0,"diretoria":"DGL","unidade":"UETR"},{"ano":"2025","num":"25","empresa":"VÓLUS TECNOLOGIA E GESTÃO DE BENEFÍCIOS LTDA","objeto":"Prestação de serviços de emissão, administração e gerenciamento de documentos de legitimidade – auxílio-alimentação e refeição, em cartão único bandeirado.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":71,"vig_inicio":"11/06/2025","vig_final":"10/06/2026","val_contratado":34440000.0,"val_atual":34440000.0,"val_mensal":2200000.0,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"26","empresa":"GREEN CARD S/A REFEIÇÕES COMÉRCIO E SERVIÇOS","objeto":"Prestação de serviços de emissão, administração e gerenciamento de documentos de legitimidade – auxílio-alimentação e refeição, em cartão único bandeirado.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":56,"vig_inicio":"27/05/2025","vig_final":"26/05/2026","val_contratado":96000.0,"val_atual":96000.0,"val_mensal":13118.0,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"27","empresa":"VEROCHEQUE REFEIÇÕES LTDA","objeto":"Prestação de serviços de emissão, administração e gerenciamento de documentos de legitimidade – auxílio-alimentação e refeição, em cartão único bandeirado.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":50,"vig_inicio":"21/05/2025","vig_final":"20/05/2026","val_contratado":96000.0,"val_atual":96000.0,"val_mensal":5381.84,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"28","empresa":"MAXXCARD ADMINISTRADORA DE CARTÕES LTDA","objeto":"Prestação de serviços de emissão, administração e gerenciamento de documentos de legitimidade – auxílio-alimentação e refeição, em cartão único bandeirado.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":57,"vig_inicio":"28/05/2025","vig_final":"27/05/2026","val_contratado":48000.0,"val_atual":48000.0,"val_mensal":1600.0,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"29","empresa":"MEGA VALE ADMINISTRADORA DE CARTOES E SERVIÇOS LTDA","objeto":"Prestação de serviços de emissão, administração e gerenciamento de documentos de legitimidade – auxílio-alimentação e refeição, em cartão único bandeirado.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":56,"vig_inicio":"27/05/2025","vig_final":"26/05/2026","val_contratado":24000.0,"val_atual":24000.0,"val_mensal":1600.0,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"30","empresa":"UP BRASIL ADMINISTRAÇÃO E SERVIÇOS LTDA","objeto":"Prestação de serviços de emissão, administração e gerenciamento de documentos de legitimidade – auxílio-alimentação e refeição, em cartão único bandeirado.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":50,"vig_inicio":"21/05/2025","vig_final":"20/05/2026","val_contratado":24000.0,"val_atual":24000.0,"val_mensal":5183.04,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"31","empresa":"R6 INSTITUICAO DE PAGAMENTOS LTDA","objeto":"Prestação de serviços de emissão, administração e gerenciamento de documentos de legitimidade – auxílio-alimentação e refeição, em cartão único bandeirado.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":57,"vig_inicio":"28/05/2025","vig_final":"27/05/2026","val_contratado":2000.0,"val_atual":2000.0,"val_mensal":0.0,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"33","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"Prestação de serviços diversos, para a realização de processos comerciais solicitados pela COSANPA ou por seus clientes, pertencentes às Unidades de Negócios dos municípios de Belém, Ananindeua e Marituba.","categoria":"Serviços Administrativos e RH","subcategoria":"Recursos Humanos","situacao":"EM RESCISÃO","dias":66,"vig_inicio":"06/06/2025","vig_final":"05/06/2026","val_contratado":12115859.11,"val_atual":12115859.11,"val_mensal":0.0,"diretoria":"DFM","unidade":"USRC"},{"ano":"2025","num":"34","empresa":"IDEXX BRASIL LABPRATÓRIOS LTDA","objeto":"Fornecimento de 110 caixas de substrato cromogênico definido CPRG-MUG, para utilização na identificação e contagem de Coliformes Totais e Escherichia coli.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Reagentes e Análises","situacao":"ATIVO","dias":77,"vig_inicio":"17/06/2025","vig_final":"16/06/2026","val_contratado":354640.0,"val_atual":354640.0,"val_mensal":22032.72,"diretoria":"DO","unidade":"UECQ"},{"ano":"2025","num":"35","empresa":"HAPVIDA ASSISTENCIA MEDICA LTDA","objeto":"Credenciamento de pessoa jurídica especializada para atuar como operadora ou administradora de benefício de plano de assistência médica para atender empregados e dependentes da COSANPA.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":71,"vig_inicio":"11/06/2025","vig_final":"10/06/2026","val_contratado":9417425.52,"val_atual":9417425.52,"val_mensal":722360.88,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"36","empresa":"IT PROTECT SERVIÇOS DE CONSULTORIA EM INFORMÁTICA LTDA","objeto":"Aquisição de Licença de Uso de Software de Gestão de Vulnerabilidades, com treinamento e serviços técnicos especializados com instalação, configuração, operação assistida e continuada pelo período de 60 meses.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Segurança da Informação","situacao":"ATIVO","dias":1558,"vig_inicio":"07/07/2025","vig_final":"06/07/2030","val_contratado":777036.0,"val_atual":777036.0,"val_mensal":12950.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2025","num":"37","empresa":"ALFAKIT LTDA","objeto":"Fornecimento de Reagentes de reposição de spectrokits do Fotocolorímetro AT 100P II Multiparâmetro para análise de amostras de água bruta e de água tratada dos Sistemas de Abastecimento de Água da COSANPA.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Reagentes e Análises","situacao":"ATIVO","dias":84,"vig_inicio":"24/06/2025","vig_final":"23/06/2026","val_contratado":53790.1,"val_atual":53790.1,"val_mensal":0.0,"diretoria":"DO","unidade":"UECQ"},{"ano":"2025","num":"40","empresa":"NC COMERCIO E LOCAÇÃO DE MÁQUINAS E EQUIPAMENTO LTDA","objeto":"Prestação de serviços de locação de veículos, com implementos necessários para o atendimento às atividades da COSANPA nos municípios: Belém, Ananindeua, Castanhal, Capanema, Salinópolis, Bragança, Santarém, Monte Alegre, Óbidos, Oriximiná, Marabá, Conceição do Araguaia e Dom Eliseu.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":97,"vig_inicio":"07/07/2025","vig_final":"06/07/2026","val_contratado":3997560.0,"val_atual":3997560.0,"val_mensal":245296.67,"diretoria":"DGL","unidade":"UETR"},{"ano":"2025","num":"41","empresa":"CAFÉ COLISEU LTDA","objeto":"Fornecimento de CAFÉ EM PÓ, de acordo com as especificações contidas no TERMO DE REFERÊNCIA PARA BENS Nº 001/2025 -UEAD.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais de Escritório e Higiene","situacao":"ATIVO","dias":106,"vig_inicio":"16/07/2025","vig_final":"15/07/2026","val_contratado":46800.0,"val_atual":46800.0,"val_mensal":3900.0,"diretoria":"DGL","unidade":"UEAD"},{"ano":"2025","num":"42","empresa":"CONTCON COMERCIO E SERVICOS LTDA","objeto":"Fornecimento de ACÚCAR, de acordo com as especificações contidas no TERMO DE REFERÊNCIA PARA BENS Nº 001/2025 - UEAD.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais de Escritório e Higiene","situacao":"ATIVO","dias":107,"vig_inicio":"17/07/2025","vig_final":"16/07/2026","val_contratado":7560.0,"val_atual":7560.0,"val_mensal":630.0,"diretoria":"DGL","unidade":"UEAD"},{"ano":"2025","num":"43","empresa":"ASAP COMERCIO E IMPORTACÃO DE COMPONENTES ELETRONICOS LTDA","objeto":"Aquisição de materiais e equipamentos elétricos destinados a reposição em cubículos elétricos de média tensão (4.160 Volt) das subestações de energia elétrica do Complexo Operacional do Bolonha.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais Elétricos e Mecânicos","situacao":"ATIVO","dias":107,"vig_inicio":"17/07/2025","vig_final":"16/07/2026","val_contratado":6510.0,"val_atual":6510.0,"val_mensal":542.5,"diretoria":"DO","unidade":"USMA"},{"ano":"2025","num":"44","empresa":"A.S. DE AVIZ","objeto":"Aquisição de materiais diversos destinados à realização de serviços de manutenção predial em geral nas unidades e setores da COSANPA.","categoria":"Serviços de Apoio Operacional","subcategoria":"Manutenção Predial","situacao":"ATIVO","dias":115,"vig_inicio":"25/07/2025","vig_final":"24/07/2026","val_contratado":31449.0,"val_atual":31449.0,"val_mensal":1302.83,"diretoria":"DGL","unidade":"UESG"},{"ano":"2025","num":"45","empresa":"IT PROTECT SERVIÇOS DE CONSULTORIA EM INFORMÁTICA LTDA","objeto":"Prestação de serviços em Infraestrutura elétrica, lógica e óptica Redes de Computadores da Cosanpa, incluindo o fornecimento de todos os materiais destinados a reparos, manutenção e execução de novos projetos.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Infraestrutura de Rede","situacao":"ATIVO","dias":135,"vig_inicio":"14/08/2025","vig_final":"13/08/2026","val_contratado":1070000.0,"val_atual":1070000.0,"val_mensal":12000.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2025","num":"49","empresa":"IDEXX BRASIL LABPRATÓRIOS LTDA","objeto":"Fornecimento de 6.000 frascos reagentes plásticos para realização de análises bacteriológicas dos Sistemas de Abastecimento de Água da COSANPA.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Reagentes e Análises","situacao":"ATIVO","dias":156,"vig_inicio":"04/09/2025","vig_final":"03/09/2026","val_contratado":29640.0,"val_atual":29640.0,"val_mensal":0.0,"diretoria":"DO","unidade":"USAG"},{"ano":"2025","num":"50","empresa":"TECNOPRIME COMERCIO LTDA","objeto":"Aquisição de materiais mecânicos e materiais elétricos para a reposição do estoque mínimo anual para os serviços de manutenção eletromecânica dos sistemas de abastecimento de água da COSANPA no Município de Belém. Lote 01.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais Elétricos e Mecânicos","situacao":"ATIVO","dias":156,"vig_inicio":"04/09/2025","vig_final":"03/09/2026","val_contratado":780124.0,"val_atual":780124.0,"val_mensal":0.0,"diretoria":"DO","unidade":"USMA"},{"ano":"2025","num":"51","empresa":"CONECTRONIX INDUSTRIA, COMERCIO E IMPORTAÇÃO DE TERMINAIS E CONECTORES LTDA","objeto":"Aquisição de materiais mecânicos e materiais elétricos para a reposição do estoque mínimo anual para os serviços de manutenção eletromecânica dos sistemas de abastecimento de água da COSANPA no Município de Belém.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais Elétricos e Mecânicos","situacao":"ATIVO","dias":135,"vig_inicio":"14/08/2025","vig_final":"13/08/2026","val_contratado":391972.9,"val_atual":391972.9,"val_mensal":32664.41,"diretoria":"DO","unidade":"USMA"},{"ano":"2025","num":"52","empresa":"NILTO JAIME MACHADO  ME","objeto":"Aquisição de materiais mecânicos e materiais elétricos para a reposição do estoque mínimo anual para os serviços de manutenção eletromecânica dos sistemas de abastecimento de água da COSANPA no Município de Belém. Lote 03.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Materiais Elétricos e Mecânicos","situacao":"ATIVO","dias":156,"vig_inicio":"04/09/2025","vig_final":"03/09/2026","val_contratado":217680.0,"val_atual":217680.0,"val_mensal":18140.0,"diretoria":"DO","unidade":"USMA"},{"ano":"2025","num":"53","empresa":"EQUILIBRIUM WEB SERVIÇOS DE INFORMÁTICA LTDA - EPP","objeto":"Prestação de serviços de suporte, de terceiro nível, voltados à segurança de rede interna e externa, servidores de aplicação e serviços.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Segurança da Informação","situacao":"TÉRMINO DA VIGÊNCIA","dias":13,"vig_inicio":"14/12/2025","vig_final":"13/04/2026","val_contratado":71000.0,"val_atual":71000.0,"val_mensal":17750.0,"diretoria":"DGL","unidade":"USTI"},{"ano":"2025","num":"58","empresa":"EMPRESA BRASILEIRA DE CORREIOS E TELEGRAFOS","objeto":"Contratação de produtos e serviços por meio de Pacote de Serviços dos CORREIOS mediante adesão ao Termo de Condições Comerciais e Anexos.","categoria":"Serviços Administrativos e RH","subcategoria":"Comunicação e Correspondência","situacao":"ATIVO","dias":296,"vig_inicio":"22/01/2026","vig_final":"21/01/2027","val_contratado":1140000.0,"val_atual":1140000.0,"val_mensal":30000.0,"diretoria":"DFM","unidade":"USRC"},{"ano":"2025","num":"59","empresa":"NORTE TURISMO LTDA","objeto":"Prestação dos serviços de agenciamento e gerenciamento de emissão de passagens aéreas regionais, nacionais e internacionais.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":213,"vig_inicio":"31/10/2025","vig_final":"30/10/2026","val_contratado":453911.26,"val_atual":453911.26,"val_mensal":30000.0,"diretoria":"PRES","unidade":"GAB"},{"ano":"2025","num":"60","empresa":"MAPDATA-TECNOLOGIA,INFORMATICA E COMERCIO LTDA","objeto":"Aquisição de assinatura de uso de software Autodesk AEC Collection (AutoCAD, Revit, etc.).","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Software e Sistemas","situacao":"ATIVO","dias":232,"vig_inicio":"19/11/2025","vig_final":"18/11/2026","val_contratado":76450.0,"val_atual":76450.0,"val_mensal":6370.83,"diretoria":"DET","unidade":"USPA"},{"ano":"2025","num":"61","empresa":"LIMPAR LIMPEZA E CONSERVACAO LTDA - EPP","objeto":"Prestação de serviços terceirizados, com dedicação exclusiva de mão de obra, para atendimento das funções de Técnico em Refrigeração, Técnico em Eletrotécnica, Auxiliar de Almoxarifado, Artífice e Pintor.","categoria":"Serviços de Apoio Operacional","subcategoria":"Manutenção Predial","situacao":"ATIVO","dias":238,"vig_inicio":"25/11/2025","vig_final":"24/11/2026","val_contratado":794535.12,"val_atual":794535.12,"val_mensal":43254.63,"diretoria":"DGL","unidade":"UESG"},{"ano":"2025","num":"62","empresa":"SITELBRA  SISTEMA DE TELECOMUNICAÇÕES DO BRASIL LTDA","objeto":"Prestação de serviço de link de acesso à internet por meio de fibra óptica, dedicado, com velocidade mínima garantida de 500 mega.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Internet e Conectividade","situacao":"ATIVO","dias":247,"vig_inicio":"04/12/2025","vig_final":"03/12/2026","val_contratado":70800.0,"val_atual":70800.0,"val_mensal":5900.0,"diretoria":"DGL","unidade":"UEST"},{"ano":"2025","num":"63","empresa":"SUL DO PARÁ SAÚDE LTDA","objeto":"Credenciamento de pessoa jurídica especializada para atuar como operadora ou administradora de benefício de plano de assistência médica para atender empregados e dependentes da COSANPA.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":252,"vig_inicio":"09/12/2025","vig_final":"08/12/2026","val_contratado":12458040.72,"val_atual":12458040.72,"val_mensal":60043.46,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"64","empresa":"ASSOCIACAO ADVENTISTA NORTE BRASILEIRA DE PREVENCAO E ASSISTENCIA A SAUDE","objeto":"Credenciamento de pessoa jurídica especializada para atuar como operadora ou administradora de benefício de plano de assistência médica para atender empregados e dependentes da COSANPA.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":252,"vig_inicio":"09/12/2025","vig_final":"08/12/2026","val_contratado":14917046.52,"val_atual":14917046.52,"val_mensal":323411.14,"diretoria":"DGP","unidade":"UERT"},{"ano":"2025","num":"65","empresa":"IDEXX BRASIL LABPRATÓRIOS LTDA","objeto":"Aquisição de cartela para quantificação de coliformes totais e Escherichia coli compatível com a seladora Quanti-Tray Sealer modelo 2X.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Reagentes e Análises","situacao":"ATIVO","dias":294,"vig_inicio":"20/01/2026","vig_final":"19/01/2027","val_contratado":22032.72,"val_atual":22032.72,"val_mensal":1836.06,"diretoria":"DO","unidade":"DO"},{"ano":"2025","num":"66","empresa":"SÃO FELIX SERVIÇOS LTDA","objeto":"Aquisição de Equipamentos de Segurança Eletrônica (CFTV e Alarme), incluindo os serviços acessórios de instalação, configuração e treinamento para monitoramento de um ponto com 8 câmeras para cada Unidade de Negócios.","categoria":"Serviços de Apoio Operacional","subcategoria":"Vigilância e Segurança","situacao":"ATIVO","dias":265,"vig_inicio":"22/12/2025","vig_final":"21/12/2026","val_contratado":24815.36,"val_atual":24815.36,"val_mensal":2067.95,"diretoria":"DGL","unidade":"USLG"},{"ano":"2025","num":"67","empresa":"SANCOMAR COMERCIAL LTDA","objeto":"Aquisição de reagente DPD líquido para determinação de Cloro Livre em água tratada na faixa de 0,05 a 3,50 mg/L de Cl2, pelo método colorimétrico.","categoria":"Fornecimento de Insumos Químicos","subcategoria":"Reagentes e Análises","situacao":"ATIVO","dias":279,"vig_inicio":"05/01/2026","vig_final":"04/01/2027","val_contratado":15216.1,"val_atual":15216.1,"val_mensal":1268.01,"diretoria":"DO","unidade":"DO"},{"ano":"2025","num":"68","empresa":"ALVAREZ E MARSAL CONSULTORIA EM ENGENHARIA LTDA.","objeto":"Prestação de consultoria especializada em reestruturação e melhoria de performance para atuar em favor da COSANPA, suportando a companhia para uma transição eficiente a partir do desenvolvimento e acompanhamento de um Mapa estratégico.","categoria":"Projetos e Consultoria Técnica","subcategoria":"Consultoria e Supervisão","situacao":"ATIVO","dias":309,"vig_inicio":"04/02/2026","vig_final":"03/02/2027","val_contratado":7790929.78,"val_atual":7790929.78,"val_mensal":0.0,"diretoria":"PRES","unidade":"ASP"},{"ano":"2026","num":"1","empresa":"T NORTETRANSPORTE LTDA","objeto":"Contratação de empresa especializada na prestação de serviços de transporte multimodal (rodoviário e hidroviário) para mudança de empregados da COSANPA e desmobilização de setores operacionais e administrativos no interior do Estado do Pará.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":18,"vig_inicio":"19/01/2026","vig_final":"18/04/2026","val_contratado":464257.2,"val_atual":464257.2,"val_mensal":154752.4,"diretoria":"DGL","unidade":"UETR"},{"ano":"2026","num":"3","empresa":"SERVPRED SERVIÇOS PREDIAIS INTELIGENTES LTDA.","objeto":"Prestação de serviços de engenharia sanitária, elétrica, e mecânica para operação (preventiva e corretiva) nas ETEs das unidades operacionais da COSANPA na Unidade de Negócios do Baixo Amazonas, Município de Santarém.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção Eletromecânica","situacao":"ATIVO","dias":123,"vig_inicio":"02/02/2026","vig_final":"01/08/2026","val_contratado":2020964.66,"val_atual":2020964.66,"val_mensal":336827.44,"diretoria":"DO","unidade":"DO"},{"ano":"2026","num":"4","empresa":"PRIME CONSULTORIA E ASSESSORIA EMPRESARIAL LTDA","objeto":"O gerenciamento eletrônico de frota de veículos, através de rede de estabelecimentos credenciados para a prestação de serviços de manutenção preventiva e corretiva.","categoria":"Serviços Administrativos e RH","subcategoria":"Transporte e Logística","situacao":"ATIVO","dias":318,"vig_inicio":"13/02/2026","vig_final":"12/02/2027","val_contratado":600000.0,"val_atual":306000.0,"val_mensal":25500.0,"diretoria":"DGL","unidade":"UETR"},{"ano":"2026","num":"5","empresa":"EQUILIBRIUM WEB SERVIÇOS DE INFORMÁTICA LTDA - EPP","objeto":"Prestação de serviços técnicos especializados na área de TI para Monitoramento e Administração de Infraestrutura de Redes e Datacenter, Segurança da Informação, Administração de Banco de Dados e Suporte ao usuário.","categoria":"Serviços de TI e Telecomunicações","subcategoria":"Segurança da Informação","situacao":"ATIVO","dias":325,"vig_inicio":"20/02/2026","vig_final":"19/02/2027","val_contratado":302498.76,"val_atual":302498.76,"val_mensal":20000.0,"diretoria":"DGL","unidade":"USTI"},{"ano":"2026","num":"6","empresa":"KAIRÓS COMERCIO E SERVIÇOS DE MANUTENÇÃO EM MOTORES LTDA-EPP","objeto":"Prestação de serviços de manutenção corretiva em motor elétrico assíncrono trifásico de média tensão (2.400 Volt), com eixo vertical e potência nominal de 550 cv, da Estação Elevatória de Água Bruta do Rio Guamá.","categoria":"Manutenção de Infraestrutura","subcategoria":"Manutenção Eletromecânica","situacao":"ATIVO","dias":160,"vig_inicio":"11/08/2026","vig_final":"07/09/2026","val_contratado":71000.0,"val_atual":71000.0,"val_mensal":11833.33,"diretoria":"DO","unidade":"DO"},{"ano":"2026","num":"7","empresa":"SEGUROS SURA S.A.","objeto":"Contratação emergencial de empresa seguradora para a prestação de serviços de Seguro de Vida em Grupo, a ser disponibilizado aos empregados e dirigentes da Companhia.","categoria":"Serviços Administrativos e RH","subcategoria":"Seguros e Benefícios","situacao":"ATIVO","dias":158,"vig_inicio":"06/03/2026","vig_final":"05/09/2026","val_contratado":647400.0,"val_atual":647400.0,"val_mensal":71198.66,"diretoria":"DGP","unidade":"USGP"},{"ano":"2026","num":"8","empresa":"LAMON PRODUTOS LTDA","objeto":"Aquisição de 01 Maleta de Pitometria MDH06-3966 LAMON, destinada às atividades de medição e monitoramento operacional dos Sistemas de Abastecimento de Água da COSANPA.","categoria":"Fornecimento de Materiais e Equipamentos","subcategoria":"Equipamentos Operacionais","situacao":"ATIVO","dias":25,"vig_inicio":"24/03/2026","vig_final":"25/04/2026","val_contratado":47300.0,"val_atual":47300.0,"val_mensal":0.0,"diretoria":"DO","unidade":"DO"}];
+
+// ── utils ──
+const fmt=(v,compact=false)=>{if(!v&&v!==0)return'—';if(compact&&v>=1e9)return'R$ '+(v/1e9).toFixed(2)+'B';if(compact&&v>=1e6)return'R$ '+(v/1e6).toFixed(2)+'M';if(compact&&v>=1e3)return'R$ '+(v/1e3).toFixed(0)+'K';return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})};
+const parseDate=s=>{if(!s||s==='—')return 0;const[d,m,y]=s.split('/');return parseInt(y+m+d)||0};
+
+// ── DATA PREP ──
+DATA.forEach(d=>d.objeto_trunc=d.objeto.slice(0,80));
+document.getElementById('hdate').textContent=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+
+// ── STATE ──
+let filtered=[...DATA],curPage=1;
+const PER=20;
+let sortCol=null,sortAsc=true,vencFilter=null;
+
+// ── POPULATE SELECTS ──
+const uniqSorted=key=>[...new Set(DATA.map(d=>d[key]))].filter(Boolean).sort();
+[['f-sit','situacao'],['f-dir','diretoria'],['f-uni','unidade'],['f-cat','categoria']].forEach(([id,key])=>{
+  const sel=document.getElementById(id);
+  uniqSorted(key).forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;sel.appendChild(o)});
+});
+
+// ── EVENTS ──
+['f-emp','f-sit','f-dir','f-uni','f-cat'].forEach(id=>document.getElementById(id).addEventListener(id==='f-emp'?'input':'change',()=>{if(id==='f-cat')updateSub();applyFilters()}));
+document.getElementById('f-sub').addEventListener('change',applyFilters);
+
+function updateSub(){
+  const cat=document.getElementById('f-cat').value;
+  const sel=document.getElementById('f-sub');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Todas</option>';
+  [...new Set(DATA.filter(d=>!cat||d.categoria===cat).map(d=>d.subcategoria))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;if(v===cur)o.selected=true;sel.appendChild(o)});
+}
+
+function applyFilters(){
+  const emp=document.getElementById('f-emp').value.toLowerCase().trim();
+  const sit=document.getElementById('f-sit').value;
+  const dir=document.getElementById('f-dir').value;
+  const uni=document.getElementById('f-uni').value;
+  const cat=document.getElementById('f-cat').value;
+  const sub=document.getElementById('f-sub').value;
+  filtered=DATA.filter(d=>{
+    if(emp&&!d.empresa.toLowerCase().includes(emp))return false;
+    if(sit&&d.situacao!==sit)return false;
+    if(dir&&d.diretoria!==dir)return false;
+    if(uni&&d.unidade!==uni)return false;
+    if(cat&&d.categoria!==cat)return false;
+    if(sub&&d.subcategoria!==sub)return false;
+    if(vencFilter&&d.dias>vencFilter)return false;
+    return true;
+  });
+  if(sortCol)applySort();
+  curPage=1;
+  document.getElementById('fc-c').textContent=filtered.length;
+  document.getElementById('fc-t').textContent=DATA.length;
+  renderKPIs(filtered);renderSit(filtered);renderVenc(filtered);renderChart(filtered);renderTable();
+}
+
+function clearFilters(){
+  ['f-emp'].forEach(id=>document.getElementById(id).value='');
+  ['f-sit','f-dir','f-uni','f-cat','f-sub'].forEach(id=>document.getElementById(id).value='');
+  vencFilter=null;
+  applyFilters();
+}
+
+// ── SORT ──
+function sortBy(col){
+  if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true}
+  document.querySelectorAll('thead th').forEach(th=>th.classList.remove('sorted'));
+  const th=document.querySelector(`[onclick="sortBy('${col}')"]`);
+  if(th){th.classList.add('sorted');th.querySelector('.sort-icon').textContent=sortAsc?'▲':'▼'}
+  applySort();curPage=1;renderTable();
+}
+function applySort(){
+  filtered.sort((a,b)=>{
+    let va=a[sortCol],vb=b[sortCol];
+    if(sortCol==='vig_inicio'||sortCol==='vig_final'){va=parseDate(va);vb=parseDate(vb)}
+    else if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase()}
+    return sortAsc?(va<vb?-1:va>vb?1:0):(va>vb?-1:va<vb?1:0);
+  });
+}
+
+// ── KPI ──
+function renderKPIs(data){
+  const tc=data.length,
+        vc=data.reduce((s,d)=>s+d.val_contratado,0),
+        va=data.reduce((s,d)=>s+d.val_atual,0),
+        vm=data.reduce((s,d)=>s+d.val_mensal,0);
+  document.getElementById('kpi-grid').innerHTML=`
+    <div class="kpi-card"><div class="label">Total de Contratos</div><div class="val">${tc}</div><div class="sub">contratos na base</div></div>
+    <div class="kpi-card"><div class="label">Valor Contratado</div><div class="val">${fmt(vc,true)}</div><div class="sub">${fmt(vc)}</div></div>
+    <div class="kpi-card"><div class="label">Valor Atual Total</div><div class="val">${fmt(va,true)}</div><div class="sub">${fmt(va)}</div></div>
+    <div class="kpi-card"><div class="label">Valor Mensal Pago</div><div class="val">${fmt(vm,true)}</div><div class="sub">${fmt(vm)}</div></div>
+  `;
+}
+
+// ── SITUAÇÕES ──
+const SIT_CFG={
+  'ATIVO':        {label:'Ativos',color:'#16a34a',icon:'✅'},
+  'TÉRMINO DA VIGÊNCIA':{label:'Término de Vigência',color:'#d97706',icon:'⏳'},
+  'EM RESCISÃO':  {label:'Em Rescisão',color:'#dc2626',icon:'⚠️'},
+  'ENCERRADO':    {label:'Encerrados',color:'#64748b',icon:'📁'},
+};
+function renderSit(data){
+  const map={};
+  Object.keys(SIT_CFG).forEach(k=>{map[k]={qtd:0,val_c:0,val_a:0}});
+  data.forEach(d=>{
+    const k=d.situacao;
+    if(!map[k])map[k]={qtd:0,val_c:0,val_a:0};
+    map[k].qtd++;map[k].val_c+=d.val_contratado;map[k].val_a+=d.val_atual;
+  });
+  const economia=data
+    .filter(d=>d.situacao==='TÉRMINO DA VIGÊNCIA'||d.situacao==='EM RESCISÃO'||d.situacao==='ENCERRADO')
+    .reduce((s,d)=>s+d.val_atual,0);
+
+  const statusCards=Object.entries(SIT_CFG).map(([k,cfg])=>{
+    const m=map[k]||{qtd:0,val_c:0,val_a:0};
+    return `<div class="sit-card" style="--sc-color:${cfg.color};cursor:pointer" onclick="filterBySit('${k}')">
+      <div class="label">${cfg.label}</div>
+      <div class="num">${m.qtd}</div>
+      <div class="val">Atual: ${fmt(m.val_a,true)}</div>
+      <div class="icon">${cfg.icon}</div>
+    </div>`;
+  }).join('');
+
+  const economiaCard=`<div class="sit-card destaque" title="Soma dos valores atuais de Término da Vigência, Em Rescisão e Encerrados">
+      <div class="label">Economia Gerada</div>
+      <div class="num">${fmt(economia,true)}</div>
+      <div class="val">Término de Vigência + Em Rescisão + Encerrados</div>
+      <div class="icon">💰</div>
+    </div>`;
+
+  document.getElementById('sit-grid').innerHTML=statusCards+economiaCard;
+}
+function filterBySit(sit){
+  document.getElementById('f-sit').value=sit;
+  applyFilters();
+}
+
+// ── VENCIMENTOS ──
+const VENC_CFG=[{d:30,label:'Vencem em 30 dias',color:'#dc2626'},{d:60,label:'Vencem em 60 dias',color:'#ea580c'},{d:90,label:'Vencem em 90 dias',color:'#d97706'}];
+function renderVenc(data){
+  document.getElementById('venc-grid').innerHTML=VENC_CFG.map(c=>`
+    <div class="venc-card ${vencFilter===c.d?'active':''}" style="--vc:${c.color}" onclick="toggleVenc(${c.d})">
+      <div class="num">${data.filter(d=>d.dias<=c.d).length}</div>
+      <div class="lbl">${c.label}</div>
+    </div>
+  `).join('');
+}
+function toggleVenc(d){vencFilter=vencFilter===d?null:d;applyFilters();}
+
+// ── GRÁFICO DIRETORIA ──
+const DIR_COLORS={'DET':'#005eb8','DO':'#16a34a','PRES':'#7c3aed','DGL':'#0284c7','DGP':'#d97706','DFM':'#dc2626'};
+function renderChart(data){
+  const map={};
+  data.forEach(d=>{if(!map[d.diretoria])map[d.diretoria]={qtd:0,val:0};map[d.diretoria].qtd++;map[d.diretoria].val+=d.val_atual});
+  const sorted=Object.entries(map).sort((a,b)=>b[1].val-a[1].val);
+  const maxVal=sorted[0]?.[1].val||1;
+  document.getElementById('chart').innerHTML=sorted.map(([dir,m])=>`
+    <div class="chart-row" onclick="filterByDir('${dir}')">
+      <div class="chart-top">
+        <span class="chart-dir">${dir}</span>
+        <span class="chart-meta"><span class="chart-qtd">${m.qtd} contratos</span><span class="chart-val">${fmt(m.val,true)}</span></span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(m.val/maxVal*100).toFixed(1)}%;background:${DIR_COLORS[dir]||'#005eb8'}"></div></div>
+    </div>
+  `).join('');
+}
+function filterByDir(dir){document.getElementById('f-dir').value=dir;applyFilters();}
+
+// ── TABELA ──
+const sitBadge=s=>{
+  if(s==='ATIVO')return`<span class="badge badge-ativo">ATIVO</span>`;
+  if(s==='TÉRMINO DA VIGÊNCIA')return`<span class="badge badge-termino">TÉRMINO</span>`;
+  if(s==='EM RESCISÃO')return`<span class="badge badge-rescisao">RESCISÃO</span>`;
+  return`<span class="badge badge-encerrado">${s}</span>`;
+};
+const diasCls=d=>d<=30?'dias-danger':d<=90?'dias-warn':'dias-ok';
+
+function renderTable(){
+  const st=(curPage-1)*PER,en=st+PER,pg=filtered.slice(st,en);
+  const tb=document.getElementById('tbody');
+  if(!pg.length){tb.innerHTML=`<tr><td colspan="10"><div class="empty">🔍 Nenhum contrato encontrado</div></td></tr>`;renderPag();return}
+  tb.innerHTML=pg.map(d=>`<tr onclick='openModal(${JSON.stringify(d).replace(/'/g,"&#39;")})'>
+    <td class="mono">${d.ano}/${d.num}</td>
+    <td title="${d.empresa}">${d.empresa}</td>
+    <td><span class="tag-cat">${d.categoria}</span></td>
+    <td><span class="tag-sub">${d.subcategoria}</span></td>
+    <td>${sitBadge(d.situacao)}</td>
+    <td class="mono">${d.vig_inicio}</td>
+    <td class="mono">${d.vig_final}</td>
+    <td class="mono ${diasCls(d.dias)}">${d.dias>=9999?'—':d.dias+'d'}</td>
+    <td class="mono">${fmt(d.val_atual,true)}</td>
+    <td class="mono">${d.val_mensal>0?fmt(d.val_mensal,true):'—'}</td>
+  </tr>`).join('');
+  renderPag();
+}
+
+function renderPag(){
+  const tot=Math.ceil(filtered.length/PER),s=(curPage-1)*PER+1,e=Math.min(curPage*PER,filtered.length);
+  document.getElementById('pag-info').textContent=filtered.length?`${s}–${e} de ${filtered.length}`:'';
+  document.getElementById('btn-prev').disabled=curPage===1;
+  document.getElementById('btn-next').disabled=curPage>=tot;
+  let nums='';
+  for(let p=Math.max(1,curPage-2);p<=Math.min(tot,curPage+2);p++)
+    nums+=`<button class="pag-btn${p===curPage?' active':''}" onclick="goPage(${p})">${p}</button>`;
+  document.getElementById('pag-nums').innerHTML=nums;
+}
+function goPage(p){curPage=p;renderTable();}
+
+// ── MODAL ──
+function openModal(d){
+  document.getElementById('m-title').textContent=`Contrato ${d.ano}/${d.num} — ${d.empresa.slice(0,40)}`;
+  document.getElementById('m-body').innerHTML=`
+    <div class="mrow"><span class="mlabel">Empresa</span><span class="mval">${d.empresa}</span></div>
+    <div class="mrow"><span class="mlabel">Situação</span><span class="mval">${sitBadge(d.situacao)}</span></div>
+    <div class="mrow"><span class="mlabel">Categoria</span><span class="mval"><span class="tag-cat">${d.categoria}</span></span></div>
+    <div class="mrow"><span class="mlabel">Subcategoria</span><span class="mval"><span class="tag-sub">${d.subcategoria}</span></span></div>
+    <div class="mrow"><span class="mlabel">Diretoria</span><span class="mval mono">${d.diretoria}</span></div>
+    <div class="mrow"><span class="mlabel">Unidade Gestora</span><span class="mval mono">${d.unidade}</span></div>
+    <div class="mrow"><span class="mlabel">Vigência Início</span><span class="mval mono">${d.vig_inicio}</span></div>
+    <div class="mrow"><span class="mlabel">Vigência Final</span><span class="mval mono ${diasCls(d.dias)}">${d.vig_final} ${d.dias<9999?'('+d.dias+' dias)':''}</span></div>
+    <div class="mrow"><span class="mlabel">Valor Contratado</span><span class="mval mono">${fmt(d.val_contratado)}</span></div>
+    <div class="mrow"><span class="mlabel">Valor Atual</span><span class="mval mono">${fmt(d.val_atual)}</span></div>
+    <div class="mrow"><span class="mlabel">Valor Mensal</span><span class="mval mono">${d.val_mensal>0?fmt(d.val_mensal):'—'}</span></div>
+    <div class="mrow" style="flex-direction:column;gap:6px"><span class="mlabel">Objeto</span><div class="mobj">${d.objeto}</div></div>
+  `;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(e){if(!e||e.target===document.getElementById('overlay'))document.getElementById('overlay').classList.remove('open')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+
+// ── INIT ──
+updateSub();applyFilters();
+
+// ── ATUALIZAR DO SHEETS (JSONP) ──
+const SHEET_ID='1IMteRqK9C2-hSKyYHmrzUI3UYYM09Hrq';
+const GID='131955173';
+
+function atualizarDoSheets(){
+  const btn=document.getElementById('btn-refresh');
+  const icon=document.getElementById('refresh-icon');
+  const status=document.getElementById('sync-status');
+
+  if(btn.classList.contains('loading'))return;
+  btn.classList.add('loading');
+  icon.classList.add('spin');
+  icon.textContent='⏳';
+  status.textContent='Buscando...';
+
+  const cbName='_gviz_'+Math.random().toString(36).slice(2);
+  const url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&sheet=Contratos&callback='+cbName+'&t='+Date.now();
+
+  const timer=setTimeout(()=>{
+    cleanup();
+    erroSync('Timeout — verifique sua conexão');
+  },20000);
+
+  function cleanup(){
+    clearTimeout(timer);
+    delete window[cbName];
+    const s=document.getElementById('gviz-script-refresh');
+    if(s)s.remove();
+    btn.classList.remove('loading');
+    icon.classList.remove('spin');
+    icon.textContent='🔄';
+  }
+
+  window[cbName]=function(data){
+    cleanup();
+    try{
+      const today=new Date();today.setHours(0,0,0,0);
+      function parseDataBR(s){
+        if(!s||s.trim()==='')return null;
+        const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+        return null;
+      }
+      function num(v){const n=parseFloat((v||'0').toString().replace(',','.'));return isNaN(n)?0:n;}
+
+      const cols=data.table.cols.map(c=>c.label||c.id);
+      const rows=data.table.rows.map(r=>{
+        const obj={};
+        cols.forEach((c,i)=>{
+          const cell=r.c?r.c[i]:null;
+          obj[c]=cell!=null&&cell.v!=null?String(cell.v):'';
+        });
+        // mapear para o formato do dashboard
+        const vigFinal=parseDataBR(obj['vig_final']||obj['Vigência Final']||'');
+        let dias=9999;
+        if(vigFinal)dias=Math.round((vigFinal-today)/(1000*60*60*24));
+        return {
+          ano:       obj['ano']||obj['Ano']||'',
+          num:       obj['num']||obj['Num']||obj['Número']||'',
+          empresa:   obj['empresa']||obj['Empresa']||'',
+          objeto:    obj['objeto']||obj['Objeto']||'',
+          categoria: obj['categoria']||obj['Categoria']||'',
+          subcategoria:obj['subcategoria']||obj['Subcategoria']||'',
+          situacao:  (obj['situacao']||obj['Situação']||obj['situação']||'').toUpperCase(),
+          dias:      dias,
+          vig_inicio:obj['vig_inicio']||obj['Vigência Início']||'',
+          vig_final: obj['vig_final']||obj['Vigência Final']||'',
+          val_contratado:num(obj['val_contratado']||obj['Valor Contratado']||0),
+          val_atual: num(obj['val_atual']||obj['Valor Atual']||0),
+          val_mensal:num(obj['val_mensal']||obj['Valor Mensal']||0),
+          diretoria: obj['diretoria']||obj['Diretoria']||'',
+          unidade:   obj['unidade']||obj['Unidade']||'',
+        };
+      }).filter(r=>r.ano||r.empresa);
+
+      if(rows.length===0){erroSync('Nenhum dado encontrado na planilha');return;}
+
+      // Atualizar DATA global e re-renderizar
+      DATA.length=0;
+      rows.forEach(r=>{DATA.push(r);});
+      DATA.forEach(d=>d.objeto_trunc=d.objeto.slice(0,80));
+
+      // Repovoar filtros
+      ['f-sit','f-dir','f-uni','f-cat'].forEach(id=>{
+        const sel=document.getElementById(id);
+        const cur=sel.value;
+        const key=id==='f-sit'?'situacao':id==='f-dir'?'diretoria':id==='f-uni'?'unidade':'categoria';
+        sel.innerHTML='<option value="">Todas</option>';
+        [...new Set(DATA.map(d=>d[key]))].filter(Boolean).sort().forEach(v=>{
+          const o=document.createElement('option');o.value=v;o.textContent=v;
+          if(v===cur)o.selected=true;sel.appendChild(o);
+        });
+      });
+
+      updateSub();
+      applyFilters();
+
+      const agora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      status.textContent=`✅ ${rows.length} contratos — ${agora}`;
+      setTimeout(()=>{status.textContent='';},8000);
+    }catch(e){
+      erroSync('Erro ao processar: '+e.message);
+    }
+  };
+
+  function erroSync(msg){
+    status.textContent='❌ '+msg;
+    setTimeout(()=>{status.textContent='';},6000);
+  }
+
+  const s=document.getElementById('gviz-script-refresh');
+  if(s)s.remove();
+  const script=document.createElement('script');
+  script.id='gviz-script-refresh';
+  script.onerror=()=>{cleanup();erroSync('Falha ao conectar — verifique sua conexão com a internet');};
+  script.src=url;
+  document.head.appendChild(script);
+}
+</script>
+</body>
+</html>
