@@ -632,7 +632,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 updateSub();applyFilters();
 
 // ── ATUALIZAR DO SHEETS (JSONP) ──
-const SHEET_ID='1IMteRqK9C2-hSKyYHmrzUI3UYYM09Hrq';
+const SHEET_ID='2PACX-1vTsNRoiY5eR0RcASHtsXRm0R53xDzRT3KEhDFXKPLx7T3m_r60CmPszRTDp3I6w7g';
 
 function atualizarDoSheets(){
   const btn=document.getElementById('btn-refresh');
@@ -646,7 +646,7 @@ function atualizarDoSheets(){
   status.textContent='Buscando...';
 
   const cbName='_gviz_'+Math.random().toString(36).slice(2);
-  const url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&sheet=Contratos&callback='+cbName+'&t='+Date.now();
+  const url='https://docs.google.com/spreadsheets/d/e/'+SHEET_ID+'/gviz/tq?tqx=out:json&gid=131955173&callback='+cbName+'&t='+Date.now();
 
   const timer=setTimeout(()=>{
     cleanup();
